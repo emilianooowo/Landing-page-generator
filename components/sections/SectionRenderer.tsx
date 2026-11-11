@@ -10,7 +10,7 @@ import type { Section } from "@/lib/schemas/section";
  * `variantOverride` lets the chooser preview a different layout without
  * touching the stored section.
  */
-export function SectionRenderer({ section, variantOverride }: { section: Section; variantOverride?: string }) {
+export function SectionRenderer({ section, variantOverride, accentOverride }: { section: Section; variantOverride?: string; accentOverride?: string }) {
   const rendered = variantOverride ? ({ ...section, variant: variantOverride } as Section) : section;
   const Component = componentFor(rendered);
 
@@ -21,8 +21,10 @@ export function SectionRenderer({ section, variantOverride }: { section: Section
         data-section-type={section.type}
         style={
           {
-            "--accent": section.style.accent,
-            "--accent-alt": section.style.accentAlt,
+            "--accent": accentOverride ?? section.style.accent,
+            "--accent-alt": accentOverride
+              ? `color-mix(in srgb, ${accentOverride} 72%, white)`
+              : section.style.accentAlt,
           } as React.CSSProperties
         }
       >

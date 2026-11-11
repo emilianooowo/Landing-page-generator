@@ -126,7 +126,7 @@ export function HeroFloatingGlassSplit({ section }: Props) {
               animate={{ y: [0, -6, 0] }}
               transition={{ duration: 6, repeat: Infinity, ease: "easeInOut" }}
             >
-              <div className="text-xs" style={{ color: "var(--page-muted)" }}>Now</div>
+              <div className="text-xs" style={{ color: "var(--page-muted)" }}>Ahora</div>
               <div style={{ fontFamily: "var(--font-display)", fontSize: "1.1rem" }}>{content.primaryCta.label}</div>
             </motion.div>
           </motion.div>

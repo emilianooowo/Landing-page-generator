@@ -1,22 +1,24 @@
 import type { BusinessBrief, FollowUpQuestion } from "@/lib/schemas/brief";
 
-export const BRIEF_SYSTEM = `You turn a plain description of a small business into structured data for a landing page builder.
+export const BRIEF_SYSTEM = `Convierte la descripción de un emprendimiento en información estructurada para crear una página web.
 
-The person writing the description is not technical. They will never see your output, and they will never see words like "hero", "CTA", "section" or "variant". Do not use that vocabulary in any question you write.
+La persona no es técnica. Nunca verá tu respuesta JSON ni términos como "hero", "CTA", "sección" o "variante". No uses esos términos en las preguntas que redactes.
 
-Rules:
-- Infer only what the description supports. Do not invent figures, awards, prices or claims.
-- whatTheyDo: one plain sentence in the business's own terms.
-- vibe: one or two values that match how the person writes, not how you would market them.
-- brandColor: only if a colour is actually mentioned. Otherwise leave it out.
-- hasCustomers: true only if the description implies the business is already trading. A business described as opening soon, launching or starting up is false.
-- keyPoints: if the person listed things, use theirs. If they didn't, name three to five ordinary things a business of this kind plainly offers — a bakery sells bread and takes cake orders; a plumber does callouts and fits bathrooms. These are category facts, not claims. Never invent anything checkable: no prices, no figures, no years in business, no awards, no named people, no opening hours.
-- sections: always include "hero", "features" and "cta" — a page without the middle is not a landing page. Include "testimonials" only when hasCustomers is true, because quotes from customers who may not exist are not something to invent.
-- If something essential is missing, ask at most two questions in the questions array, each in plain conversational language with two to four tappable suggestions. Ask about the business, never about layout.
+Reglas:
+- Responde todo el contenido editorial en español de México. Usa expresiones naturales y cotidianas de México; conserva sin traducir los nombres propios y las marcas.
+- Deduce solo lo que permita afirmar la descripción. No inventes cifras, premios, precios ni promesas.
+- businessName: conserva el nombre del negocio solo si la persona lo mencionó explícitamente; nunca inventes una marca. hasBusinessName: true únicamente cuando ese nombre aparezca explícitamente en la descripción; de lo contrario false.
+- whatTheyDo: una oración sencilla que explique a qué se dedica el negocio, con palabras naturales.
+- vibe: uno o dos valores que reflejen cómo se expresa la persona, no cómo lo anunciarías tú.
+- brandColor: inclúyelo solo si se menciona un color. De lo contrario, déjalo vacío.
+- hasCustomers: usa true solo si la descripción da a entender que el negocio ya vende. Si está por abrir, lanzarse o empezar, usa false.
+- keyPoints: si la persona enumera productos o servicios, usa esos. Si no, incluye de tres a cinco opciones comunes para ese tipo de negocio; por ejemplo, una pastelería vende pan y acepta pedidos de pasteles. Son datos típicos de la categoría, no afirmaciones verificables. Nunca inventes precios, cifras, años de experiencia, premios, nombres ni horarios.
+- sections: incluye siempre "hero", "features" y "cta". Incluye "testimonials" solo si hasCustomers es true, para no inventar opiniones de clientes.
+- Si falta información esencial, haz como máximo dos preguntas conversacionales y cercanas en el campo questions, cada una con entre dos y cuatro sugerencias breves y concretas. Prioriza qué vende o qué incluye su servicio, y qué acción espera de quien visite la página. Adapta las sugerencias al emprendimiento; usa ejemplos cotidianos de México cuando apliquen. Pregunta sobre el negocio, nunca sobre el diseño.
 
-Return JSON only.`;
+Devuelve únicamente JSON.`;
 
-/** Roughly the point below which a description can't carry a page on its own. */
+/** Aproximadamente el límite por debajo del cual la descripción es insuficiente. */
 const SPARSE_WORD_COUNT = 12;
 
 export function isSparse(description: string): boolean {
@@ -24,37 +26,34 @@ export function isSparse(description: string): boolean {
 }
 
 export function buildBriefPrompt(description: string): string {
-  const base = `Business description:\n"""\n${description.trim()}\n"""`;
+  const base = `Descripción del emprendimiento:\n"""\n${description.trim()}\n"""`;
   if (!isSparse(description)) return base;
 
-  // Whether to ask was previously left entirely to the model, which made it a
-  // coin flip at this length — the same input asked follow-ups one run and
-  // guessed the next. The decision is ours; the wording is still the model's.
   return `${base}
 
-This description is very short. You must ask two questions rather than guessing: one about what they actually make or sell, and one about what a visitor should do. Fill in whatever else you can and leave the rest out.`;
+La descripción es muy breve. Haz dos preguntas en español de México en lugar de adivinar: una sobre lo que vende o hace la persona y otra sobre lo que le gustaría que hiciera quien visite la página. Completa solo lo que puedas deducir y deja vacío lo demás.`;
 }
 
-/** Second pass: the original text plus whatever the follow-ups produced. */
+/** Segunda vuelta: descripción original más las respuestas de seguimiento. */
 export function buildBriefFollowUpPrompt(
   description: string,
   partial: Partial<BusinessBrief>,
   answers: { question: FollowUpQuestion; answer: string }[],
 ): string {
   const answered = answers
-    .map((a) => `Q: ${a.question.question}\nA: ${a.answer}`)
+    .map((a) => `Pregunta: ${a.question.question}\nRespuesta: ${a.answer}`)
     .join("\n\n");
 
-  return `Business description:
+  return `Descripción del emprendimiento:
 """
 ${description.trim()}
 """
 
-What you inferred last time:
+Lo que dedujiste anteriormente:
 ${JSON.stringify(partial, null, 2)}
 
-The person has now answered your questions:
+La persona respondió estas preguntas:
 ${answered}
 
-Produce the complete brief. Do not ask anything further — fill any remaining gap with the most reasonable reading of what they said.`;
+Completa la información del negocio en español de México. No hagas más preguntas; completa cualquier dato faltante con la interpretación más razonable de lo que compartió.`;
 }

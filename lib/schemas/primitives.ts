@@ -15,7 +15,7 @@ export type SectionType = z.infer<typeof SectionType>;
 
 export const hexColor = z
   .string()
-  .regex(/^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/, "Expected a hex colour, e.g. #1B4D3E");
+  .regex(/^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/, "Escribe un color hexadecimal válido, por ejemplo #1B4D3E.");
 
 /** Trimmed, non-empty, length-capped string. Caps are layout constraints, not style preferences. */
 export const text = (max: number) => z.string().trim().min(1).max(max);
@@ -110,7 +110,7 @@ export function requireSlots<V extends string, C extends Record<string, unknown>
         ctx.addIssue({
           code: "custom",
           path: ["content", slot],
-          message: `The "${value.variant}" layout needs "${slot}" to be filled in.`,
+          message: `El diseño "${value.variant}" necesita que completes "${slot}".`,
         });
       }
     }
@@ -130,7 +130,7 @@ export function requireItemCount<V extends string>(
       ctx.addIssue({
         code: "custom",
         path: ["content", "items"],
-        message: `The "${value.variant}" layout needs between ${min} and ${max} items, got ${n}.`,
+        message: `El diseño "${value.variant}" requiere entre ${min} y ${max} elementos; recibió ${n}.`,
       });
     }
   };

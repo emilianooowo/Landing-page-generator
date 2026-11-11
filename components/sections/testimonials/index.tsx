@@ -11,7 +11,7 @@ type Props = { section: TestimonialsSection };
 function Stars({ n }: { n?: number }) {
   if (!n) return null;
   return (
-    <div className="flex gap-1" aria-label={`${n} out of 5`}>
+    <div className="flex gap-1" aria-label={`${n} de 5 estrellas`}>
       {Array.from({ length: 5 }, (_, i) => (
         <span key={i} style={{ color: i < n ? "var(--accent)" : "var(--page-border)", fontSize: "0.9rem" }}>
           ★
@@ -31,7 +31,7 @@ function Attribution({ t, seed }: { t: Testimonial; seed: number }) {
       <div>
         <div style={{ fontWeight: 600 }}>{t.name}</div>
         <div className="text-sm" style={{ color: "var(--page-muted)" }}>
-          {t.role ?? (sample ? "Replace with a real customer quote" : "Customer")}
+          {t.role ?? (sample ? "Reemplaza este ejemplo con una opinión real" : "Cliente")}
         </div>
       </div>
     </footer>
@@ -105,7 +105,7 @@ export function TestimonialsGlassCarousel({ section }: Props) {
               <button
                 key={i}
                 type="button"
-                aria-label={`Show quote ${i + 1}`}
+                aria-label={`Mostrar opinión ${i + 1}`}
                 onClick={() => setActive(i)}
                 className="h-2 rounded-full transition-all"
                 style={{ width: i === active ? 28 : 8, background: i === active ? "var(--accent)" : "var(--page-border)" }}

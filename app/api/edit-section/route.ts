@@ -21,12 +21,12 @@ const Body = z.object({
  */
 export async function POST(request: Request) {
   const body = Body.safeParse(await request.json().catch(() => null));
-  if (!body.success) return NextResponse.json({ error: "Bad request" }, { status: 400 });
+  if (!body.success) return NextResponse.json({ error: "La solicitud no es válida." }, { status: 400 });
 
   try {
     const result = await editSection(body.data);
     return NextResponse.json(result);
-  } catch (error) {
-    return NextResponse.json({ error: error instanceof Error ? error.message : "Edit failed" }, { status: 502 });
+  } catch {
+    return NextResponse.json({ error: "No se pudo actualizar la sección. Inténtalo de nuevo." }, { status: 502 });
   }
 }

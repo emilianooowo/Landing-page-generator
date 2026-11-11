@@ -19,7 +19,7 @@ export function ThemeToggle({
       type="button"
       className="tool-button"
       onClick={(e) => onChange(next, { x: e.clientX, y: e.clientY })}
-      aria-label={`Switch preview to ${next} theme`}
+      aria-label={`Cambiar la vista previa al tema ${next === "dark" ? "oscuro" : "claro"}`}
     >
       <span className="inline-flex items-center gap-2">
         <span
@@ -27,7 +27,7 @@ export function ThemeToggle({
           className="inline-block h-3 w-3 rounded-full"
           style={{ background: value === "dark" ? "#f1f2f5" : "#0b0c10", boxShadow: "0 0 0 1px var(--tool-border)" }}
         />
-        {value === "dark" ? "Light" : "Dark"}
+        {value === "dark" ? "Claro" : "Oscuro"}
       </span>
     </button>
   );
@@ -35,7 +35,7 @@ export function ThemeToggle({
 
 const HEIGHTS: Record<string, number> = { hero: 520, features: 460, testimonials: 340, cta: 300 };
 
-export function SectionSkeleton({ type, label = "Writing this part…" }: { type: string; label?: string }) {
+export function SectionSkeleton({ type, label = "Preparando esta sección…" }: { type: string; label?: string }) {
   return (
     <div
       aria-busy="true"

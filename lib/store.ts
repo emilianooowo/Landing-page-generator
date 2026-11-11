@@ -2,39 +2,108 @@
 
 import type { BusinessBrief } from "@/lib/schemas/brief";
 import type { Section } from "@/lib/schemas/section";
+import { getLocalUser } from "@/lib/auth/local";
 
 /**
- * Projects live in the browser for now. There is no account, no server-side
- * store, and nothing to deploy for a generated page, so sessionStorage covers
- * the actual need: survive a refresh, and let the intake screen hand off to
- * the workspace by id. Swap this for a database later without touching callers.
+ * Local demo storage: each browser account owns a localStorage project list.
+ * It survives restarts in this browser but does not sync or provide server-side
+ * access control; replace this adapter with a database before production.
  */
 export type StoredProject = {
   id: string;
+  ownerId?: string;
+  name?: string;
   description: string;
   brief: BusinessBrief;
   sections: Section[];
   createdAt: string;
 };
 
-const KEY = (id: string) => `lpg:project:${id}`;
+const PROJECTS_KEY = (ownerId: string) => `lpg:projects:${ownerId}`;
+const PENDING_PROJECT_KEY = "lpg:pending-project";
 
 export function newProjectId(): string {
   return `p_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 7)}`;
 }
 
+export function savePendingProject(project: StoredProject): void {
+  if (typeof window !== "undefined") window.localStorage.setItem(PENDING_PROJECT_KEY, JSON.stringify(project));
+}
+
+export function consumePendingProject(): string | null {
+  if (typeof window === "undefined" || !getLocalUser()) return null;
+  try {
+    const raw = window.localStorage.getItem(PENDING_PROJECT_KEY);
+    if (!raw) return null;
+    const project = JSON.parse(raw) as StoredProject;
+    saveProject(project);
+    window.localStorage.removeItem(PENDING_PROJECT_KEY);
+    return project.id;
+  } catch {
+    window.localStorage.removeItem(PENDING_PROJECT_KEY);
+    return null;
+  }
+}
+
 export function saveProject(project: StoredProject): void {
   if (typeof window === "undefined") return;
-  window.sessionStorage.setItem(KEY(project.id), JSON.stringify(project));
+  const user = getLocalUser();
+  if (!user) return;
+  if (project.ownerId && project.ownerId !== user.id) return;
+  const projects = readProjects(user.id);
+  const next = { ...project, ownerId: user.id };
+  const index = projects.findIndex((item) => item.id === project.id);
+  if (index === -1) projects.unshift(next);
+  else projects[index] = next;
+  window.localStorage.setItem(PROJECTS_KEY(user.id), JSON.stringify(projects));
 }
 
 export function loadProject(id: string): StoredProject | null {
   if (typeof window === "undefined") return null;
-  const raw = window.sessionStorage.getItem(KEY(id));
-  if (!raw) return null;
+  const user = getLocalUser();
+  if (!user) return null;
+  return readProjects(user.id).find((project) => project.id === id) ?? null;
+}
+
+export function listProjects(): StoredProject[] {
+  if (typeof window === "undefined") return [];
+  const user = getLocalUser();
+  return user ? readProjects(user.id) : [];
+}
+
+export function deleteProject(id: string): void {
+  if (typeof window === "undefined") return;
+  const user = getLocalUser();
+  if (!user) return;
+  window.localStorage.setItem(
+    PROJECTS_KEY(user.id),
+    JSON.stringify(readProjects(user.id).filter((project) => project.id !== id)),
+  );
+}
+
+function readProjects(ownerId: string): StoredProject[] {
+  const key = PROJECTS_KEY(ownerId);
   try {
-    return JSON.parse(raw) as StoredProject;
+    const parsed: unknown = JSON.parse(window.localStorage.getItem(key) ?? "[]");
+    const projects = Array.isArray(parsed) ? parsed as StoredProject[] : [];
+    let migrated = false;
+    for (let index = window.sessionStorage.length - 1; index >= 0; index -= 1) {
+      const oldKey = window.sessionStorage.key(index);
+      if (!oldKey?.startsWith("lpg:project:")) continue;
+      try {
+        const oldProject = JSON.parse(window.sessionStorage.getItem(oldKey) ?? "null") as StoredProject | null;
+        if (oldProject && !projects.some((project) => project.id === oldProject.id)) {
+          projects.push({ ...oldProject, ownerId });
+          migrated = true;
+        }
+        window.sessionStorage.removeItem(oldKey);
+      } catch {
+        window.sessionStorage.removeItem(oldKey);
+      }
+    }
+    if (migrated) window.localStorage.setItem(key, JSON.stringify(projects));
+    return [...projects].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
   } catch {
-    return null;
+    return [];
   }
 }

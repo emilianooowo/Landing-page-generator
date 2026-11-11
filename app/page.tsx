@@ -1,30 +1,73 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState } from "react";
-import { DescribeBox, FollowUpPrompt } from "@/components/intake";
+import { useEffect, useRef, useState } from "react";
+import { FollowUpPrompt } from "@/components/intake";
+import { PublicShell } from "@/components/app/PublicShell";
+import { useAuth } from "@/components/auth/AuthProvider";
 import type { BusinessBrief, FollowUpQuestion } from "@/lib/schemas/brief";
-import { newProjectId, saveProject } from "@/lib/store";
+import { newProjectId, savePendingProject, saveProject } from "@/lib/store";
+import styles from "./home.module.css";
+
+const SUGGESTIONS = [
+  "Vendo brownies y galletas en mi universidad.",
+  "Hago pulseras y accesorios personalizados.",
+  "Doy asesorías de matemáticas para secundaria.",
+];
+
+type BriefResponse = {
+  error?: string;
+  status?: "complete" | "needs-input";
+  brief?: BusinessBrief;
+  partial?: Partial<BusinessBrief>;
+  questions?: FollowUpQuestion[];
+};
 
 async function post(url: string, body: unknown) {
-  const response = await fetch(url, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
-  const data = await response.json();
-  if (!response.ok) throw new Error(data.error ?? "Something went wrong");
+  let response: Response;
+  try {
+    response = await fetch(url, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
+  } catch {
+    throw new Error("No se pudo conectar con el servicio de IA. Inténtalo de nuevo.");
+  }
+  let data: BriefResponse;
+  try {
+    data = await response.json();
+  } catch {
+    throw new Error("El servicio respondió con información no válida.");
+  }
+  if (!response.ok) throw new Error(data.error ?? "Ocurrió un error. Inténtalo de nuevo.");
   return data;
 }
 
 export default function Home() {
   const router = useRouter();
+  const { user } = useAuth();
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
   const [description, setDescription] = useState("");
+  const [textareaHeight, setTextareaHeight] = useState(38);
   const [questions, setQuestions] = useState<FollowUpQuestion[]>([]);
   const [answers, setAnswers] = useState<Record<number, string>>({});
   const [partial, setPartial] = useState<Partial<BusinessBrief>>({});
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  useEffect(() => {
+    const textarea = textareaRef.current;
+    if (!textarea) return;
+    textarea.style.height = "0px";
+    setTextareaHeight(Math.max(38, Math.min(textarea.scrollHeight, 240)));
+  }, [description]);
+
   function go(brief: BusinessBrief) {
     const id = newProjectId();
-    saveProject({ id, description, brief, sections: [], createdAt: new Date().toISOString() });
+    const project = { id, description, brief, sections: [], createdAt: new Date().toISOString() };
+    if (!user) {
+      savePendingProject(project);
+      router.push("/register");
+      return;
+    }
+    saveProject(project);
     router.push(`/project/${id}`);
   }
 
@@ -53,7 +96,7 @@ export default function Home() {
         answers: questions.map((question, i) => ({ question, answer: answers[i] })),
       });
       if (outcome.status === "complete" && outcome.brief) return go(outcome.brief);
-      setError("That still wasn't quite enough to go on. Try adding a little more above.");
+      setError("Aún falta un poco de información. Agrega más detalles a tu descripción.");
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
@@ -61,33 +104,85 @@ export default function Home() {
     }
   }
 
+  function updateDescription(value: string) {
+    setDescription(value);
+  }
+
   return (
-    <main className="mx-auto grid min-h-screen max-w-[46rem] content-center gap-10 px-6 py-16">
-      <header className="grid gap-3">
-        <p className="text-sm" style={{ color: "var(--tool-accent)" }}>Landing page generator</p>
-        <h1 className="text-[2.2rem] leading-tight @md:text-[2.8rem]" style={{ fontFamily: "var(--font-display-serif)", letterSpacing: "-0.02em" }}>
-          Describe your business. Get a page that looks like it was made for it.
-        </h1>
-        <p style={{ color: "var(--tool-muted)" }}>No design decisions, no jargon. Just say what you do.</p>
-      </header>
+    <PublicShell>
+    <main className={styles.homePage}>
+      <section className={styles.content} aria-labelledby="home-title">
+        <div className={styles.intro}>
+          <h1 id="home-title">Cuéntanos tu emprendimiento</h1>
+        </div>
 
-      {questions.length === 0 ? (
-        <DescribeBox value={description} onChange={setDescription} onSubmit={start} busy={busy} />
-      ) : (
-        <FollowUpPrompt
-          questions={questions}
-          answers={answers}
-          onAnswer={(i, v) => setAnswers((a) => ({ ...a, [i]: v }))}
-          onSubmit={finish}
-          busy={busy}
-        />
-      )}
+        {questions.length === 0 ? (
+          <div className={styles.formArea}>
+            <form className={styles.describeBox} onSubmit={(event) => { event.preventDefault(); void start(); }}>
+              <textarea
+                ref={textareaRef}
+                className={styles.textarea}
+                rows={1}
+                style={{ height: textareaHeight }}
+                value={description}
+                onChange={(event) => updateDescription(event.target.value)}
+                placeholder="Cuéntanos qué ofreces…"
+                aria-label="Describe tu emprendimiento"
+                onKeyDown={(event) => {
+                  if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) {
+                    event.preventDefault();
+                    void start();
+                  }
+                }}
+              />
+              <button
+                type="submit"
+                className={styles.sendButton}
+                aria-label={busy ? "Preparando tu página" : "Enviar descripción"}
+                title="Enviar descripción"
+                disabled={busy || !description.trim()}
+              >
+                {busy ? (
+                  <span className={styles.spinner} aria-hidden="true" />
+                ) : (
+                  <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                    <path d="M21.5 2.5 10.9 13.1m10.6-10.6-6.7 19-3.9-8.4-8.4-3.9 19-6.7Z" stroke="currentColor" strokeWidth="1.65" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                )}
+              </button>
+            </form>
 
-      {error && (
-        <p className="rounded-lg px-4 py-3 text-sm" style={{ background: "#2a1a1a", color: "#e6a3a3", border: "1px solid #4a2626" }}>
-          {error}
-        </p>
-      )}
+            <div className={styles.suggestions} aria-label="Ideas para empezar">
+              {SUGGESTIONS.map((suggestion) => (
+                <button
+                  className={styles.suggestion}
+                  key={suggestion}
+                  type="button"
+                  onClick={() => {
+                    updateDescription(suggestion);
+                    textareaRef.current?.focus();
+                  }}
+                >
+                  {suggestion}
+                </button>
+              ))}
+            </div>
+          </div>
+        ) : (
+          <div className={styles.followUp}>
+            <FollowUpPrompt
+              questions={questions}
+              answers={answers}
+              onAnswer={(i, v) => setAnswers((a) => ({ ...a, [i]: v }))}
+              onSubmit={finish}
+              busy={busy}
+            />
+          </div>
+        )}
+
+        {error && <p className={styles.error} role="alert">{error}</p>}
+      </section>
     </main>
+    </PublicShell>
   );
 }

@@ -157,7 +157,7 @@ export function GenerativeTile({ seed, className = "", style }: { seed: number; 
   return (
     <div
       role="img"
-      aria-label="Decorative image placeholder"
+        aria-label="Imagen decorativa de ejemplo"
       className={className}
       style={{
         width: "100%",

@@ -44,7 +44,7 @@ function SendIcon() {
 
 function TypingIndicator() {
   return (
-    <div className="chat-typing" aria-label="Assistant is typing">
+    <div className="chat-typing" aria-label="El asistente está escribiendo">
       <span className="chat-typing-dot" />
       <span className="chat-typing-dot" />
       <span className="chat-typing-dot" />
@@ -164,12 +164,12 @@ export function ChatWidget({
       if (!response.ok) {
         const data = await response.json().catch(() => ({}));
         throw new Error(
-          (data as { error?: string }).error ?? `Request failed (${response.status})`,
+          (data as { error?: string }).error ?? `La solicitud falló (${response.status}).`,
         );
       }
 
       const reader = response.body?.getReader();
-      if (!reader) throw new Error("No response stream");
+      if (!reader) throw new Error("No se recibió una respuesta del servicio.");
 
       const decoder = new TextDecoder();
       let assistantContent = "";
@@ -200,7 +200,7 @@ export function ChatWidget({
           const next = [...prev];
           next[next.length - 1] = {
             role: "assistant",
-            content: "Sorry, I wasn't able to generate a response. Please try again!",
+            content: "No pude generar una respuesta. Inténtalo de nuevo.",
           };
           return next;
         });
@@ -208,7 +208,11 @@ export function ChatWidget({
     } catch (err) {
       if ((err as Error).name === "AbortError") return;
       setError(
-        err instanceof Error ? err.message : "Something went wrong",
+        err instanceof TypeError
+          ? "No se pudo conectar con el chat. Inténtalo de nuevo."
+          : err instanceof Error
+            ? err.message
+            : "Ocurrió un error. Inténtalo de nuevo.",
       );
       // Remove the empty assistant placeholder on error.
       setMessages((prev) => {
@@ -243,7 +247,7 @@ export function ChatWidget({
         className="chat-fab"
         data-open={open ? "true" : "false"}
         onClick={toggleOpen}
-        aria-label={open ? "Close chat" : "Open chat assistant"}
+        aria-label={open ? "Cerrar chat" : "Abrir asistente de chat"}
       >
         {open ? <CloseIcon /> : <ChatIcon />}
       </button>
@@ -254,7 +258,7 @@ export function ChatWidget({
           className="chat-panel"
           data-closing={closing ? "true" : undefined}
           role="dialog"
-          aria-label={`Chat with ${brief.businessName}`}
+          aria-label={`Chat con ${brief.businessName}`}
         >
           {/* Header */}
           <div className="chat-header">
@@ -266,7 +270,7 @@ export function ChatWidget({
               type="button"
               className="chat-header-close"
               onClick={handleClose}
-              aria-label="Close chat"
+              aria-label="Cerrar chat"
             >
               <CloseIcon />
             </button>
@@ -298,20 +302,20 @@ export function ChatWidget({
             <textarea
               ref={inputRef}
               className="chat-input"
-              placeholder="Ask a question…"
+              placeholder="Escribe tu pregunta…"
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={handleKeyDown}
               rows={1}
               disabled={streaming}
-              aria-label="Chat message input"
+              aria-label="Mensaje para el chat"
             />
             <button
               type="button"
               className="chat-send"
               onClick={() => void send()}
               disabled={streaming || !input.trim()}
-              aria-label="Send message"
+              aria-label="Enviar mensaje"
             >
               <SendIcon />
             </button>

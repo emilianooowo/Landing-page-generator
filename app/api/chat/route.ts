@@ -17,14 +17,14 @@ const Body = z.object({
   description: z.string().min(1),
 });
 
-const MODEL = process.env.GROQ_MODEL ?? "llama-3.3-70b-versatile";
+const MODEL = process.env.GROQ_MODEL ?? "openai/gpt-oss-120b";
 const ENDPOINT = "https://api.groq.com/openai/v1/chat/completions";
 
 export async function POST(request: Request) {
   const key = process.env.GROQ_API_KEY;
   if (!key) {
     return NextResponse.json(
-      { error: "Chat is not configured" },
+      { error: "El chat no está configurado." },
       { status: 500 },
     );
   }
@@ -34,7 +34,7 @@ export async function POST(request: Request) {
   );
   if (!body.success) {
     return NextResponse.json(
-      { error: "Bad request" },
+      { error: "La solicitud no es válida." },
       { status: 400 },
     );
   }
@@ -71,16 +71,15 @@ export async function POST(request: Request) {
     });
   } catch {
     return NextResponse.json(
-      { error: "Failed to reach the AI service" },
+      { error: "No se pudo conectar con el servicio de IA." },
       { status: 502 },
     );
   }
 
   if (!response.ok) {
-    const detail = await response.text().catch(() => "");
     return NextResponse.json(
       {
-        error: `AI service error (${response.status}): ${detail.slice(0, 200)}`,
+        error: `El servicio de IA respondió con un error (${response.status}).`,
       },
       { status: 502 },
     );

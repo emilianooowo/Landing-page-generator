@@ -1,19 +1,27 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { SectionOverlay } from "./SectionOverlay";
-import { SectionSkeleton, ThemeToggle, type PageTheme } from "./ThemeToggle";
-import { ViewportToggle, VIEWPORTS, type ViewportKey } from "./ViewportToggle";
+import { SectionSkeleton, type PageTheme } from "./ThemeToggle";
+import { VIEWPORTS, type ViewportKey } from "./ViewportToggle";
 import { ChatWidget } from "@/components/chat/ChatWidget";
 import { SectionRenderer } from "@/components/sections/SectionRenderer";
 import type { BusinessBrief } from "@/lib/schemas/brief";
 import type { SectionType } from "@/lib/schemas/primitives";
 import type { Section } from "@/lib/schemas/section";
 import { pageScopeVars } from "@/lib/theme/typography";
+import styles from "@/app/project/workspace.module.css";
 
 export type PreviewSlot =
   | { type: SectionType; state: "pending" }
   | { type: SectionType; state: "done"; section: Section; busy?: boolean };
+
+export type PreviewControls = {
+  theme: PageTheme;
+  viewport: ViewportKey;
+  setViewport: (viewport: ViewportKey) => void;
+  switchTheme: (theme: PageTheme, origin: { x: number; y: number }) => void;
+};
 
 /**
  * The frame sets an explicit width and is a CSS container, so sections respond
@@ -24,17 +32,23 @@ export function PreviewFrame({
   brief,
   description,
   slots,
+  accentColor,
   onEdit,
+  onTextChange,
   onVariant,
+  renderSidebar,
 }: {
   brief: BusinessBrief;
   description: string;
   slots: PreviewSlot[];
+  accentColor: string;
   onEdit: (index: number, request: string) => void;
+  onTextChange: (index: number, section: Section) => void;
   onVariant: (index: number, variant: string) => void;
+  renderSidebar: (controls: PreviewControls) => ReactNode;
 }) {
   const [viewport, setViewport] = useState<ViewportKey>("desktop");
-  const [theme, setTheme] = useState<PageTheme>("dark");
+  const [theme, setTheme] = useState<PageTheme>("light");
   const [sweeping, setSweeping] = useState(false);
   const scopeRef = useRef<HTMLDivElement>(null);
 
@@ -54,42 +68,44 @@ export function PreviewFrame({
   }
 
   return (
-    <div className="grid gap-3">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <ViewportToggle value={viewport} onChange={setViewport} />
-        <ThemeToggle value={theme} onChange={switchTheme} />
-      </div>
+    <div className={styles.workspace}>
+      <aside className={styles.sidebar}>
+        {renderSidebar({ theme, viewport, setViewport, switchTheme })}
+      </aside>
 
-      <div className="overflow-x-auto rounded-2xl p-3" style={{ border: "1px solid var(--tool-border)", background: "var(--tool-panel)" }}>
-        <div
-          ref={scopeRef}
-          className="page-scope mx-auto overflow-hidden rounded-xl"
-          data-theme={theme}
-          data-sweeping={sweeping ? "true" : undefined}
-          style={{ width: VIEWPORTS[viewport], maxWidth: "100%", transition: "width 320ms cubic-bezier(0.2,0,0,1)", ...pageScopeVars(brief, motion) }}
-        >
-          {slots.map((slot, i) =>
-            slot.state === "pending" ? (
-              <SectionSkeleton key={`${slot.type}-${i}`} type={slot.type} />
-            ) : (
-              <div key={slot.section.id} className="relative">
-                <SectionRenderer section={slot.section} />
-                <SectionOverlay
-                  section={slot.section}
-                  theme={theme}
-                  busy={Boolean(slot.busy)}
-                  onEdit={(request) => onEdit(i, request)}
-                  onVariant={(variant) => onVariant(i, variant)}
-                />
-              </div>
-            ),
-          )}
+      <section className={styles.previewColumn} aria-label="Vista previa del sitio">
+        <div className={styles.previewSurface}>
+          <div
+            ref={scopeRef}
+            className="page-scope mx-auto overflow-hidden rounded-xl"
+            data-theme={theme}
+            data-sweeping={sweeping ? "true" : undefined}
+            style={{ width: VIEWPORTS[viewport], maxWidth: "100%", transition: "width 320ms cubic-bezier(0.2,0,0,1)", "--accent": accentColor, ...pageScopeVars(brief, motion) } as React.CSSProperties}
+          >
+            {slots.map((slot, i) =>
+              slot.state === "pending" ? (
+                <SectionSkeleton key={`${slot.type}-${i}`} type={slot.type} />
+              ) : (
+                <div key={slot.section.id} className="relative">
+                    <SectionRenderer section={slot.section} accentOverride={accentColor} />
+                  <SectionOverlay
+                    section={slot.section}
+                    theme={theme}
+                    busy={Boolean(slot.busy)}
+                    onEdit={(request) => onEdit(i, request)}
+                    onTextChange={(section) => onTextChange(i, section)}
+                    onVariant={(variant) => onVariant(i, variant)}
+                  />
+                </div>
+              ),
+            )}
 
-          {/* The chatbot overlay tracks the horizontal position of page-scope 
-              but remains fixed to the bottom of the viewport vertically. */}
-          <ChatOverlay scopeRef={scopeRef} brief={brief} description={description} />
+            {/* The chatbot overlay tracks the horizontal position of page-scope
+                but remains fixed to the bottom of the viewport vertically. */}
+            <ChatOverlay scopeRef={scopeRef} brief={brief} description={description} />
+          </div>
         </div>
-      </div>
+      </section>
     </div>
   );
 }

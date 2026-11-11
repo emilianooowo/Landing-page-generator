@@ -21,7 +21,7 @@ const Body = z.object({
 export async function POST(request: Request) {
   const body = Body.safeParse(await request.json().catch(() => null));
   if (!body.success) {
-    return NextResponse.json({ error: "Bad request" }, { status: 400 });
+    return NextResponse.json({ error: "La solicitud no es válida." }, { status: 400 });
   }
 
   try {
@@ -31,10 +31,10 @@ export async function POST(request: Request) {
     if (error instanceof PipelineError) {
       // Our own defaults are broken — a real bug, not a model failure.
       console.error(error);
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      return NextResponse.json({ error: "Ocurrió un error interno al preparar esta sección." }, { status: 500 });
     }
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Generation failed" },
+      { error: "No se pudo generar esta sección. Inténtalo de nuevo." },
       { status: 502 },
     );
   }

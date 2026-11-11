@@ -4,9 +4,9 @@ import { motion } from "framer-motion";
 import type { FollowUpQuestion } from "@/lib/schemas/brief";
 
 const EXAMPLES = [
-  "I run a small bakery in Johar Town. Sourdough, custom cakes, mostly regulars from the neighbourhood.",
-  "We're a two-person studio that photographs weddings across Punjab, opening bookings for next spring.",
-  "I fix laptops and phones from a shop near Liberty Market, same-day for most repairs.",
+  "Vendo postres caseros en mi colonia. Preparo brownies, galletas y pasteles por pedido.",
+  "Doy asesorías de matemáticas y física para estudiantes de secundaria y prepa.",
+  "Hago pulseras y accesorios personalizados para regalar o usar diario.",
 ];
 
 export function DescribeBox({
@@ -27,7 +27,7 @@ export function DescribeBox({
         rows={5}
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        placeholder="Tell me about your business the way you'd tell a friend. What you do, who it's for, anything you're proud of."
+        placeholder="Cuéntanos de tu emprendimiento como se lo contarías a una amistad: qué haces, para quién y qué lo hace especial."
         autoFocus
         onKeyDown={(e) => {
           if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) onSubmit();
@@ -42,7 +42,7 @@ export function DescribeBox({
           ))}
         </div>
         <button type="button" className="tool-button primary" onClick={onSubmit} disabled={busy || value.trim().length < 3}>
-          {busy ? "Reading…" : "Build my page"}
+          {busy ? "Preparando tu página…" : "Crear mi página"}
         </button>
       </div>
     </div>
@@ -70,7 +70,7 @@ export function FollowUpPrompt({
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4, ease: [0.2, 0, 0, 1] }}
     >
-      <p style={{ color: "var(--tool-muted)" }}>Two quick things so the page sounds like you.</p>
+      <p style={{ color: "var(--tool-muted)" }}>Un par de preguntas para que tu página hable como tú.</p>
       {questions.map((q, i) => (
         <div key={q.question} className="grid gap-3">
           <p className="text-[1.05rem]">{q.question}</p>
@@ -85,13 +85,13 @@ export function FollowUpPrompt({
             className="tool-input"
             value={q.suggestions.includes(answers[i] ?? "") ? "" : answers[i] ?? ""}
             onChange={(e) => onAnswer(i, e.target.value)}
-            placeholder="Or say it your way"
+            placeholder="O cuéntalo con tus palabras"
           />
         </div>
       ))}
       <div className="flex justify-end">
         <button type="button" className="tool-button primary" onClick={onSubmit} disabled={busy || !complete}>
-          {busy ? "Building…" : "Continue"}
+          {busy ? "Preparando tu página…" : "Continuar"}
         </button>
       </div>
     </motion.div>

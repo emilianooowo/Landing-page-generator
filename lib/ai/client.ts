@@ -37,7 +37,7 @@ export class ModelError extends Error {
 }
 
 const MODEL =
-  process.env.GROQ_MODEL ?? "llama-3.3-70b-versatile";
+  process.env.GROQ_MODEL ?? "openai/gpt-oss-120b";
 
 const ENDPOINT = "https://api.groq.com/openai/v1/chat/completions";
 
@@ -79,7 +79,7 @@ function parseJson(raw: string): unknown {
       return JSON.parse(cleaned.slice(arrayStart, arrayEnd + 1));
     }
 
-    throw new Error("Invalid JSON");
+    throw new Error("JSON no válido");
   }
 }
 
@@ -88,7 +88,7 @@ export const groqJson: ModelCall = async (request) => {
 
   if (!key) {
     throw new ModelError(
-      "GROQ_API_KEY is not set",
+      "Falta configurar la variable GROQ_API_KEY.",
       "auth",
     );
   }
@@ -96,7 +96,7 @@ export const groqJson: ModelCall = async (request) => {
   let systemContent = request.system;
   if (request.responseSchema) {
     const jsonSchema = toGeminiSchema(request.responseSchema);
-    systemContent += `\n\nYou MUST respond with valid JSON strictly conforming to this JSON schema:\n${JSON.stringify(jsonSchema, null, 2)}`;
+    systemContent += `\n\nDebes responder con JSON válido que cumpla estrictamente este esquema:\n${JSON.stringify(jsonSchema, null, 2)}`;
   }
 
   const body: Record<string, unknown> = {
@@ -123,14 +123,12 @@ export const groqJson: ModelCall = async (request) => {
     });
   } catch (cause) {
     throw new ModelError(
-      `Groq request failed: ${String(cause)}`,
+      "No se pudo conectar con el servicio de IA. Revisa tu conexión e inténtalo de nuevo.",
       "network",
     );
   }
 
   if (!response.ok) {
-    const detail = await response.text().catch(() => "");
-
     let kind: ModelError["kind"];
 
     if (response.status === 401 || response.status === 403) {
@@ -143,10 +141,16 @@ export const groqJson: ModelCall = async (request) => {
       kind = "request";
     }
 
-    throw new ModelError(
-      `Groq responded ${response.status}: ${detail.slice(0, 500)}`,
-      kind,
-    );
+    const message = response.status === 404
+      ? "El modelo de IA solicitado no está disponible para esta cuenta."
+      : response.status === 401 || response.status === 403
+        ? "La API key de Groq no es válida o no tiene acceso al modelo."
+        : response.status === 429
+          ? "Se alcanzó el límite de solicitudes de Groq. Inténtalo más tarde."
+          : response.status >= 500
+            ? "El servicio de IA no está disponible por el momento."
+            : `Groq respondió con un error (${response.status}).`;
+    throw new ModelError(message, kind);
   }
 
   let payload: {
@@ -164,7 +168,7 @@ export const groqJson: ModelCall = async (request) => {
     payload = await response.json();
   } catch {
     throw new ModelError(
-      "Groq returned invalid JSON",
+      "El servicio de IA devolvió una respuesta JSON no válida.",
       "bad-json",
     );
   }
@@ -176,8 +180,7 @@ export const groqJson: ModelCall = async (request) => {
 
   if (!raw) {
     throw new ModelError(
-      payload.error?.message ??
-      "Groq returned an empty response",
+      "El servicio de IA devolvió una respuesta vacía.",
       "bad-json",
     );
   }
@@ -191,7 +194,7 @@ export const groqJson: ModelCall = async (request) => {
     };
   } catch {
     throw new ModelError(
-      `Groq response was not valid JSON: ${raw.slice(0, 500)}`,
+      "El servicio de IA devolvió una respuesta JSON no válida.",
       "bad-json",
     );
   }

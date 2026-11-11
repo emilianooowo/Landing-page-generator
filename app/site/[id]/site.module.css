@@ -1,0 +1,15 @@
+.loading {
+  min-height: 100svh;
+  background: #fff;
+}
+
+.missing {
+  display: grid;
+  min-height: 100svh;
+  place-items: center;
+  padding: 24px;
+  background: #fff;
+  color: #65595c;
+  font: 0.95rem/1.5 var(--font-body), system-ui, sans-serif;
+  text-align: center;
+}

@@ -3,16 +3,49 @@
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
+import { CirclePlus, ExternalLink, Laptop, Moon, RotateCw, Smartphone, Sun, Tablet } from "lucide-react";
 import { PreviewFrame, type PreviewSlot } from "@/components/preview/PreviewFrame";
+import type { PageTheme } from "@/components/preview/ThemeToggle";
+import { VIEWPORTS, type ViewportKey } from "@/components/preview/ViewportToggle";
 import type { Section } from "@/lib/schemas/section";
 import { loadProject, saveProject, type StoredProject } from "@/lib/store";
+import styles from "../workspace.module.css";
 
 async function post(url: string, body: unknown) {
-  const response = await fetch(url, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
-  const data = await response.json();
-  if (!response.ok) throw new Error(data.error ?? "Something went wrong");
+  let response: Response;
+  try {
+    response = await fetch(url, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
+  } catch {
+    throw new Error("No se pudo conectar con el servicio. Inténtalo de nuevo.");
+  }
+  let data: { error?: string; section: Section };
+  try {
+    data = await response.json();
+  } catch {
+    throw new Error("El servicio respondió con información no válida.");
+  }
+  if (!response.ok) throw new Error(data.error ?? "Ocurrió un error. Inténtalo de nuevo.");
   return data;
 }
+
+function genericPageTitle(description: string, brief: StoredProject["brief"]): string {
+  const context = [description, brief.whatTheyDo, brief.desiredAction, ...brief.keyPoints].join(" ").toLocaleLowerCase("es-MX");
+  if (/cat[aá]logo|ver productos|ver lo que ofrezco|lista de productos/.test(context)) return "Página web de catálogo";
+  if (/venta|vendo|vender|pedido|comprar|comida|postre|accesorio|producto/.test(context)) return "Página web de venta";
+  if (/contact|asesor|consult|clase|materia|agenda|cita|servicio/.test(context)) return "Página web de contacto";
+  return "Página web de servicios";
+}
+
+function normalizeHexColor(color: string): string {
+  const shortHex = /^#([0-9a-f]{3})$/i.exec(color);
+  return shortHex ? `#${[...shortHex[1]].map((digit) => `${digit}${digit}`).join("")}` : color;
+}
+
+const VIEWPORT_ICON: Record<ViewportKey, typeof Smartphone> = {
+  mobile: Smartphone,
+  tablet: Tablet,
+  desktop: Laptop,
+};
 
 export default function Workspace() {
   const { id } = useParams<{ id: string }>();
@@ -54,7 +87,7 @@ export default function Workspace() {
         return;
       }
     }
-    persist(p, done);
+    persist(loadProject(p.id) ?? p, done);
   }
 
   async function edit(index: number, request: string) {
@@ -80,40 +113,126 @@ export default function Workspace() {
     persist(project, next.filter((s): s is Extract<PreviewSlot, { state: "done" }> => s.state === "done").map((s) => s.section));
   }
 
+  function changeText(index: number, section: Section) {
+    if (!project) return;
+    const next = slots.map((slot, i) => i === index && slot.state === "done" ? { ...slot, section } : slot);
+    setSlots(next);
+    persist(project, next.filter((slot): slot is Extract<PreviewSlot, { state: "done" }> => slot.state === "done").map((slot) => slot.section));
+  }
+
+  function changeAccent(color: string) {
+    if (!project) return;
+    const next = { ...project, brief: { ...project.brief, brandColor: color } };
+    saveProject(next);
+    setProject(next);
+  }
+
   if (project === undefined) return null;
   if (project === null) {
     return (
-      <main className="mx-auto grid min-h-screen max-w-[40rem] content-center gap-4 px-6">
-        <p>This page isn&apos;t here any more. Sessions are kept in your browser tab only.</p>
-        <Link className="tool-button w-fit" href="/">Start again</Link>
-      </main>
+        <main className="mx-auto grid min-h-screen max-w-[40rem] content-center gap-4 px-6">
+          <p>Este proyecto no está disponible en la cuenta activa.</p>
+          <Link className="tool-button w-fit" href="/dashboard">Volver a tus proyectos</Link>
+        </main>
     );
   }
 
+  const pageTitle = project.brief.hasBusinessName && project.brief.businessName.trim()
+    ? `Tu página para ${project.brief.businessName}`
+    : genericPageTitle(project.description, project.brief);
+  const accentColor = normalizeHexColor(project.brief.brandColor ?? "#7a2638");
+
   return (
-    <main className="mx-auto grid max-w-[92rem] gap-5 px-4 py-6 @md:px-8">
-      <header className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <p className="text-sm" style={{ color: "var(--tool-muted)" }}>Your page for</p>
-          <h1 className="text-xl" style={{ fontFamily: "var(--font-display-serif)" }}>{project.brief.businessName}</h1>
-        </div>
-        <div className="flex items-center gap-2">
-          <button type="button" className="tool-button" onClick={() => { started.current = true; void generateAll(project); }}>
-            Start over with the same description
-          </button>
-          <Link className="tool-button" href="/">New page</Link>
-        </div>
-      </header>
+    <main className={`${styles.workspacePage} mx-auto max-w-[100rem] px-4 py-5 sm:px-6 lg:px-8`}>
+      <PreviewFrame
+        brief={project.brief}
+        description={project.description}
+        slots={slots}
+        accentColor={accentColor}
+        onEdit={edit}
+        onTextChange={changeText}
+        onVariant={changeVariant}
+        renderSidebar={({ theme, viewport, setViewport, switchTheme }) => (
+          <>
+            <div className={styles.titleBlock}>
+              <span className={styles.eyebrow}>Vista previa</span>
+              <div className={styles.titleRow}>
+                <h1 className={styles.title}>{pageTitle}</h1>
+                <div className={styles.actions}>
+                  <button
+                    type="button"
+                    className={`${styles.iconButton} ${styles.iconButtonPrimary}`}
+                    aria-label="Volver a generar la página"
+                    title="Volver a generar"
+                    onClick={() => { started.current = true; void generateAll(project); }}
+                  ><RotateCw aria-hidden="true" /></button>
+                  <Link className={styles.iconButton} href="/" aria-label="Crear otra página" title="Crear otra página">
+                    <CirclePlus aria-hidden="true" />
+                  </Link>
+                  <a className={styles.iconButton} href={`/site/${project.id}`} target="_blank" rel="noreferrer" aria-label="Abrir la página como sitio" title="Ver sitio">
+                    <ExternalLink aria-hidden="true" />
+                  </a>
+                </div>
+              </div>
+              <p className={styles.businessDescription}>{project.brief.whatTheyDo}</p>
+              <p className={styles.audience}>Para {project.brief.audience.toLocaleLowerCase("es-MX")}</p>
+            </div>
 
-      <p className="text-sm" style={{ color: "var(--tool-muted)" }}>
-        Hover over any part of the page to change its words or pick a different look.
-      </p>
+            <div className={styles.controlGroup}>
+              <span className={styles.controlLabel}>Apariencia</span>
+              <div className={styles.iconGroup} role="group" aria-label="Apariencia de la página">
+                {(["light", "dark"] as PageTheme[]).map((mode) => {
+                  const Icon = mode === "light" ? Sun : Moon;
+                  return <button
+                    key={mode}
+                    type="button"
+                    className={styles.iconButton}
+                    aria-label={`Usar modo ${mode === "light" ? "claro" : "oscuro"}`}
+                    title={`Modo ${mode === "light" ? "claro" : "oscuro"}`}
+                    aria-pressed={theme === mode}
+                    onClick={(event) => switchTheme(mode, { x: event.clientX, y: event.clientY })}
+                  ><Icon aria-hidden="true" /></button>;
+                })}
+              </div>
+            </div>
 
-      {error && (
-        <p className="rounded-lg px-4 py-3 text-sm" style={{ background: "#2a1a1a", color: "#e6a3a3", border: "1px solid #4a2626" }}>{error}</p>
-      )}
+            <div className={styles.controlGroup}>
+              <span className={styles.controlLabel}>Color de acento</span>
+              <label className={styles.colorControl}>
+                <span>{accentColor.toUpperCase()}</span>
+                <input
+                  type="color"
+                  value={accentColor}
+                  aria-label="Elegir color de acento para la página"
+                  onChange={(event) => changeAccent(event.target.value)}
+                />
+              </label>
+            </div>
 
-      <PreviewFrame brief={project.brief} description={project.description} slots={slots} onEdit={edit} onVariant={changeVariant} />
+            <div className={styles.controlGroup}>
+              <span className={styles.controlLabel}>Tamaño de pantalla</span>
+              <div className={styles.iconGroup} role="group" aria-label="Tamaño de pantalla de la vista previa">
+                {(Object.keys(VIEWPORTS) as ViewportKey[]).map((size) => {
+                  const Icon = VIEWPORT_ICON[size];
+                  const label = size === "mobile" ? "Celular" : size === "tablet" ? "Tableta" : "Escritorio";
+                  return <button
+                    key={size}
+                    type="button"
+                    className={styles.iconButton}
+                    aria-label={`Vista de ${label.toLocaleLowerCase("es-MX")}`}
+                    title={label}
+                    aria-pressed={viewport === size}
+                    onClick={() => setViewport(size)}
+                  ><Icon aria-hidden="true" /></button>;
+                })}
+              </div>
+            </div>
+
+            <p className={styles.businessDescription}>Pasa el cursor sobre una sección para editar su texto o cambiar el diseño.</p>
+            {error && <p className={styles.error} role="alert">{error}</p>}
+          </>
+        )}
+      />
     </main>
   );
 }

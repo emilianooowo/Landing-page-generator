@@ -32,7 +32,7 @@ export function fallbackFor(type: SectionType, brief: BusinessBrief) {
     case "features": {
       const points = brief.keyPoints.length
         ? brief.keyPoints
-        : [brief.whatTheyDo, `Made for ${brief.audience}`, brief.desiredAction];
+        : [brief.whatTheyDo, `Pensado para ${brief.audience}`, brief.desiredAction];
       const items = points.slice(0, 6).map((point, i) => ({
         title: clamp(point.split(/[.,–—]/)[0].trim() || point, 40),
         body: clamp(point, 140),
@@ -48,7 +48,7 @@ export function fallbackFor(type: SectionType, brief: BusinessBrief) {
       }
       return {
         variant: FALLBACK_VARIANTS.features,
-        content: { headline: "What we do", items },
+        content: { headline: "Lo que ofrecemos", items },
       };
     }
 
@@ -57,11 +57,11 @@ export function fallbackFor(type: SectionType, brief: BusinessBrief) {
       return {
         variant: FALLBACK_VARIANTS.testimonials,
         content: {
-          headline: "What customers say",
+          headline: "Lo que dicen nuestros clientes",
           items: [
             {
-              quote: "Add a quote from a real customer here to replace this sample.",
-              name: "Sample customer",
+              quote: "Agrega aquí la opinión de un cliente real para reemplazar este ejemplo.",
+              name: "Cliente de ejemplo",
             },
           ],
         },
@@ -71,7 +71,7 @@ export function fallbackFor(type: SectionType, brief: BusinessBrief) {
       return {
         variant: FALLBACK_VARIANTS.cta,
         content: {
-          headline: clamp(`Ready to ${brief.desiredAction.toLowerCase()}?`, 60),
+          headline: "Da el siguiente paso",
           primaryCta: { label: clamp(brief.desiredAction, 28), href: "#" },
         },
       };
@@ -88,13 +88,13 @@ export function fallbackQuestions(): FollowUpQuestion[] {
   return [
     {
       field: "keyPoints",
-      question: "What are the main things you make or sell?",
-      suggestions: ["A few regular items", "Made to order", "A service, not products"],
+      question: "Para entender mejor tu emprendimiento, ¿qué vendes o qué servicio das? Si puedes, cuéntame qué incluye.",
+      suggestions: ["Productos que preparo", "Productos personalizados", "Asesorías o clases", "Otro servicio"],
     },
     {
       field: "desiredAction",
-      question: "What would you like someone to do after reading about you?",
-      suggestions: ["Come and visit", "Place an order", "Get in touch", "See what's available"],
+      question: "Cuando alguien vea tu página, ¿qué te gustaría que hiciera primero?",
+      suggestions: ["Mandarme WhatsApp", "Hacer un pedido", "Agendar asesoría", "Ver mi catálogo"],
     },
   ];
 }

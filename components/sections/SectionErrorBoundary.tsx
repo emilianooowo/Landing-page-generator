@@ -35,7 +35,7 @@ export class SectionErrorBoundary extends Component<Props, State> {
           textAlign: "center",
         }}
       >
-        <p>This part of the page couldn&apos;t be shown.</p>
+        <p>No se pudo mostrar esta sección de la página.</p>
         {process.env.NODE_ENV !== "production" && (
           <pre
             style={{

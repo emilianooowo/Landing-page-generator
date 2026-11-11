@@ -21,6 +21,8 @@ export type Vibe = z.infer<typeof Vibe>;
 
 export const BusinessBrief = z.object({
   businessName: text(60),
+  /** True only when the person explicitly named the business in their description. */
+  hasBusinessName: z.boolean().default(false),
   /** One sentence, in the business's own terms, not marketing language. */
   whatTheyDo: text(200),
   audience: text(120),

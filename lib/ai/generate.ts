@@ -21,11 +21,14 @@ import {
   BriefParse,
   BusinessBrief,
   resolveBriefParse,
+  VIBES,
   type BriefParseOutcome,
   type FollowUpQuestion,
 } from "@/lib/schemas/brief";
 
 import {
+  IMAGE_CATEGORIES,
+  SECTION_TYPES,
   SectionStyle,
   type SectionStatus,
   type SectionType,
@@ -143,7 +146,7 @@ async function callWithTransportRetries(
   throw (
     lastError ??
     new ModelError(
-      "Model call failed",
+      "No se pudo completar la solicitud al modelo de IA.",
       "network",
     )
   );
@@ -315,7 +318,7 @@ export async function generateSection(
 
       user = buildRepairPrompt(
         user,
-        ["The response was not valid JSON."],
+        ["La respuesta no contiene JSON válido."],
       );
 
       continue;
@@ -405,7 +408,7 @@ export async function generateSection(
     throw new PipelineError(
       `The fallback for "${type}" is itself invalid: ` +
       `${built.problems.join("; ")}. ` +
-      `Fix lib/fallbacks.ts — there is nothing left to fall back to.`,
+      `Corrige lib/fallbacks.ts: no hay más opciones de respaldo disponibles.`,
     );
   }
 
@@ -521,7 +524,7 @@ export async function editSection(
 
       user = buildRepairPrompt(
         user,
-        ["The response was not valid JSON."],
+        ["La respuesta no contiene JSON válido."],
       );
 
       continue;
@@ -682,7 +685,7 @@ export async function completeBrief(
     }[];
   },
   deps: Deps = {},
-): Promise<BusinessBrief | null> {
+): Promise<BusinessBrief> {
   const model = deps.model ?? (process.env.GROQ_API_KEY ? groqJson : geminiJson);
 
   const raw = await callWithTransportRetries(
@@ -709,9 +712,52 @@ export async function completeBrief(
     ? raw
     : {};
 
+  const answerFallbacks: Partial<BusinessBrief> = {};
+  const keyPointAnswers: string[] = [];
+  const vibeAnswer = args.answers
+    .filter((answer) => answer.question.field === "vibe")
+    .map((answer) => answer.answer.toLowerCase())
+    .join(" ");
+
+  for (const { question, answer } of args.answers) {
+    const value = answer.trim();
+    if (!value) continue;
+
+    switch (question.field) {
+      case "whatTheyDo":
+        answerFallbacks.whatTheyDo = value;
+        break;
+      case "audience":
+        answerFallbacks.audience = value;
+        break;
+      case "desiredAction":
+        answerFallbacks.desiredAction = value;
+        break;
+      case "keyPoints":
+        keyPointAnswers.push(value);
+        break;
+    }
+  }
+
+  if (keyPointAnswers.length) answerFallbacks.keyPoints = keyPointAnswers;
+  if (vibeAnswer) {
+    const spanishVibes: Record<(typeof VIBES)[number], RegExp> = {
+      bold: /atrevid|audaz|enérgic|llamativ/,
+      calm: /calm|tranquil|relajad/,
+      playful: /divertid|juguet|creativ/,
+      premium: /premium|sofistic|luj/,
+      technical: /técnic|profesional|modern/,
+      warm: /cálid|cercan|amig/,
+      minimal: /minimal|sencill/,
+    };
+    const matchedVibes = VIBES.filter((vibe) => spanishVibes[vibe].test(vibeAnswer));
+    if (matchedVibes.length) answerFallbacks.vibe = matchedVibes.slice(0, 2);
+  }
+
   const briefObj = {
-    ...args.partial,
     ...(typeof briefCandidate === "object" && briefCandidate !== null ? briefCandidate : {}),
+    ...args.partial,
+    ...answerFallbacks,
   };
 
   const directBrief = BusinessBrief.safeParse(briefObj);
@@ -719,39 +765,51 @@ export async function completeBrief(
     return directBrief.data;
   }
 
+  const cleanText = (value: unknown, fallback: string, max: number) => {
+    const candidate = typeof value === "string" ? value.trim() : "";
+    return (candidate || fallback).slice(0, max).trim() || fallback.slice(0, max);
+  };
+  const originalDescription = args.description.trim() || "Mi emprendimiento";
+
+  const vibe = Array.isArray(briefObj.vibe)
+    ? briefObj.vibe.filter(
+        (value): value is (typeof VIBES)[number] =>
+          typeof value === "string" && VIBES.includes(value as (typeof VIBES)[number]),
+      ).slice(0, 2)
+    : [];
+  const sections = Array.isArray(briefObj.sections)
+    ? briefObj.sections.filter(
+        (value): value is (typeof SECTION_TYPES)[number] =>
+          typeof value === "string" && SECTION_TYPES.includes(value as (typeof SECTION_TYPES)[number]),
+      ).slice(0, 4)
+    : [];
+  const keyPoints = Array.isArray(briefObj.keyPoints)
+    ? briefObj.keyPoints
+        .filter((value): value is string => typeof value === "string" && Boolean(value.trim()))
+        .map((value) => value.trim().slice(0, 80))
+        .slice(0, 6)
+    : [];
+  const validBrandColor =
+    typeof briefObj.brandColor === "string" && /^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.test(briefObj.brandColor)
+      ? briefObj.brandColor
+      : undefined;
+
   const fallbackBrief: BusinessBrief = {
-    businessName:
-      typeof briefObj.businessName === "string" && briefObj.businessName.length > 0
-        ? briefObj.businessName.slice(0, 60)
-        : args.description.slice(0, 30) || "My Business",
-    whatTheyDo:
-      typeof briefObj.whatTheyDo === "string" && briefObj.whatTheyDo.length > 0
-        ? briefObj.whatTheyDo.slice(0, 200)
-        : args.description.slice(0, 150) || "Providing quality products and services.",
-    audience:
-      typeof briefObj.audience === "string" && briefObj.audience.length > 0
-        ? briefObj.audience.slice(0, 120)
-        : "General Audience",
-    vibe:
-      Array.isArray(briefObj.vibe) && briefObj.vibe.length > 0
-        ? (briefObj.vibe.slice(0, 2) as any)
-        : ["bold"],
-    brandColor: typeof briefObj.brandColor === "string" ? briefObj.brandColor : undefined,
-    imageWorld: typeof briefObj.imageWorld === "string" ? (briefObj.imageWorld as any) : "service",
-    desiredAction:
-      typeof briefObj.desiredAction === "string" && briefObj.desiredAction.length > 0
-        ? briefObj.desiredAction.slice(0, 40)
-        : "Contact Us",
-    keyPoints: Array.isArray(briefObj.keyPoints)
-      ? briefObj.keyPoints
-      : ["Quality Service", "Expert Team", "Customer Satisfaction"],
-    hasCustomers: Boolean(briefObj.hasCustomers),
-    sections:
-      Array.isArray(briefObj.sections) && briefObj.sections.length >= 2
-        ? (briefObj.sections as any)
-        : ["hero", "features", "cta"],
+    businessName: cleanText(briefObj.businessName, originalDescription, 60),
+    hasBusinessName: typeof briefObj.hasBusinessName === "boolean" ? briefObj.hasBusinessName : false,
+    whatTheyDo: cleanText(briefObj.whatTheyDo, originalDescription, 200),
+    audience: cleanText(briefObj.audience, "Público general", 120),
+    vibe: vibe.length ? vibe : ["warm"],
+    brandColor: validBrandColor,
+    imageWorld:
+      typeof briefObj.imageWorld === "string" && IMAGE_CATEGORIES.includes(briefObj.imageWorld as (typeof IMAGE_CATEGORIES)[number])
+        ? briefObj.imageWorld as (typeof IMAGE_CATEGORIES)[number]
+        : "product-object",
+    desiredAction: cleanText(briefObj.desiredAction, "Contáctanos", 40),
+    keyPoints,
+    hasCustomers: typeof briefObj.hasCustomers === "boolean" ? briefObj.hasCustomers : false,
+    sections: sections.length >= 2 ? sections : ["hero", "features", "cta"],
   };
 
-  const finalCheck = BusinessBrief.safeParse(fallbackBrief);
-  return finalCheck.success ? finalCheck.data : null;
+  return BusinessBrief.parse(fallbackBrief);
 }

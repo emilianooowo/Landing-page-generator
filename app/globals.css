@@ -56,7 +56,7 @@ body {
 }
 
 .page-scope[data-theme="light"] {
-  --page-bg: #f7f5f1;
+  --page-bg: #ffffff;
   --page-surface: #ffffff;
   --page-border: rgba(20, 20, 24, 0.09);
   --page-text: #16171b;

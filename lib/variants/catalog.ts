@@ -24,27 +24,27 @@ export const VARIANT_CATALOG: Record<SectionType, VariantMeta[]> = {
   hero: [
     {
       id: "aurora-veil",
-      label: "Calm and glowing",
-      guidance: "Centred copy over a slow-moving gradient. Safe for any business; best when there's no strong image.",
+      label: "Calmado y luminoso",
+      guidance: "Texto centrado sobre un degradado que se mueve lentamente. Funciona con cualquier negocio; ideal cuando no hay una imagen protagonista.",
       vibes: ["calm", "premium", "minimal"],
     },
     {
       id: "floating-glass-split",
-      label: "Bold and floating",
-      guidance: "Copy on one side, a floating image card on the other. Use when the business is visual — food, spaces, physical products.",
+      label: "Enérgico y flotante",
+      guidance: "Texto de un lado y una tarjeta de imagen flotante del otro. Úsalo con negocios visuales como comida, espacios o productos físicos.",
       vibes: ["bold", "warm", "playful"],
       needs: ["image"],
     },
     {
       id: "spotlight-monolith",
-      label: "Sharp and focused",
-      guidance: "One tall panel with a light that follows the cursor. Use for services that sell on confidence rather than pictures.",
+      label: "Directo y enfocado",
+      guidance: "Un panel alto con una luz que sigue el cursor. Úsalo para servicios que destacan por la confianza y no por las imágenes.",
       vibes: ["technical", "premium", "minimal"],
     },
     {
       id: "orbital-stack",
-      label: "Proof up front",
-      guidance: "Headline with numbers orbiting it. Only when there are real figures worth leading with.",
+      label: "Cifras al frente",
+      guidance: "Un título con cifras alrededor. Úsalo solo cuando haya datos reales que valga la pena destacar.",
       vibes: ["bold", "technical"],
       needs: ["proofPoints"],
     },
@@ -52,80 +52,80 @@ export const VARIANT_CATALOG: Record<SectionType, VariantMeta[]> = {
   features: [
     {
       id: "glass-grid",
-      label: "Clean and even",
-      guidance: "Equal cards in a grid. The dependable choice when the points are all of similar weight.",
+      label: "Ordenado y parejo",
+      guidance: "Tarjetas del mismo tamaño en una cuadrícula. Una opción clara cuando todos los puntos tienen la misma importancia.",
       vibes: ["calm", "minimal", "technical"],
     },
     {
       id: "depth-bento",
-      label: "One big idea",
-      guidance: "Uneven tiles with one pushed forward. Use when one point clearly matters more than the rest.",
+      label: "Una idea principal",
+      guidance: "Tarjetas de distintos tamaños con una al frente. Úsalo cuando un punto destaque sobre los demás.",
       vibes: ["bold", "premium"],
       needs: ["image"],
     },
     {
       id: "floating-column",
-      label: "Told in order",
-      guidance: "A vertical stack that drifts as you scroll. Use when the points read as steps or a sequence.",
+      label: "En orden",
+      guidance: "Una columna vertical que se mueve al desplazarse. Úsala cuando los puntos formen pasos o una secuencia.",
       vibes: ["warm", "calm"],
     },
     {
       id: "orbit-ring",
-      label: "Playful and circular",
-      guidance: "Cards arranged around a glowing centre. Use for informal, creative or consumer businesses.",
+      label: "Creativo y circular",
+      guidance: "Tarjetas alrededor de un centro luminoso. Úsalo para negocios creativos, informales o de consumo.",
       vibes: ["playful", "warm"],
     },
   ],
   testimonials: [
     {
       id: "glass-carousel",
-      label: "Swipe through",
-      guidance: "Two to four quotes on blurred cards, one lifted at a time.",
+      label: "Desliza y descubre",
+      guidance: "De dos a cuatro opiniones en tarjetas desenfocadas, con una al frente a la vez.",
       vibes: ["calm", "premium", "technical"],
     },
     {
       id: "floating-cards",
-      label: "Scattered and lively",
-      guidance: "Quotes drifting at different depths. Use for warm, informal businesses.",
+      label: "Espontáneo y dinámico",
+      guidance: "Opiniones flotando a distintas profundidades. Úsalo para negocios cálidos e informales.",
       vibes: ["playful", "warm", "bold"],
     },
     {
       id: "single-spotlight",
-      label: "One strong voice",
-      guidance: "A single large quote under a soft glow. Use when there is only one quote worth showing.",
+      label: "Una opinión destacada",
+      guidance: "Una sola opinión grande bajo un brillo sutil. Úsala cuando solo haya una opinión que valga la pena mostrar.",
       vibes: ["premium", "minimal", "calm"],
     },
     {
       id: "depth-marquee",
-      label: "Always moving",
-      guidance: "Quotes scrolling sideways at two depths. Use when volume of praise is the point.",
+      label: "En movimiento",
+      guidance: "Opiniones desplazándose en dos niveles. Úsalo cuando haya muchas opiniones positivas que mostrar.",
       vibes: ["bold", "playful"],
     },
   ],
   cta: [
     {
       id: "glow-band",
-      label: "Direct and bright",
-      guidance: "A full-width band with one pulsing button. Best for a single, obvious next step.",
+      label: "Directo y llamativo",
+      guidance: "Una franja de lado a lado con un botón que pulsa. Ideal para una sola acción clara.",
       vibes: ["bold", "playful"],
     },
     {
       id: "glass-monolith",
-      label: "Quiet and premium",
-      guidance: "A floating glass panel over moving colour. Safe default for anything considered or high-value.",
+      label: "Sutil y cuidado",
+      guidance: "Un panel de vidrio flotante sobre colores en movimiento. Opción versátil para servicios de alto valor o que requieren pensarse.",
       vibes: ["premium", "calm", "minimal"],
     },
     {
       id: "split-orbital",
-      label: "Show and ask",
-      guidance: "Copy beside an image on depth layers. Use when a final visual helps close.",
+      label: "Muestra e invita",
+      guidance: "Texto junto a una imagen con capas de profundidad. Úsalo cuando una imagen ayude a concretar la acción.",
       vibes: ["warm", "bold"],
       needs: ["image"],
     },
     {
       id: "aurora-wave",
-      label: "Soft and sweeping",
-      guidance: "A moving wave gradient carrying the copy. Use for calm, human-facing services.",
+      label: "Suave y fluido",
+      guidance: "Una onda de color en movimiento que acompaña el texto. Úsala para servicios cercanos y tranquilos.",
       vibes: ["calm", "warm", "technical"],
       needs: ["subheadline"],
     },
@@ -135,6 +135,6 @@ export const VARIANT_CATALOG: Record<SectionType, VariantMeta[]> = {
 /** Compact list for prompts: `id — guidance (needs: x)`. */
 export function describeVariants(type: SectionType): string {
   return VARIANT_CATALOG[type]
-    .map((v) => `- ${v.id} — ${v.guidance}${v.needs ? ` (requires: ${v.needs.join(", ")})` : ""}`)
+    .map((v) => `- ${v.id} — ${v.guidance}${v.needs ? ` (requiere: ${v.needs.join(", ")})` : ""}`)
     .join("\n");
 }

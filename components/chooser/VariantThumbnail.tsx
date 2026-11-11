@@ -54,7 +54,7 @@ export function VariantThumbnail({
           <SectionRenderer section={section} variantOverride={variant} />
         </div>
       </div>
-      <span className="text-xs" style={{ color: selected ? "var(--tool-text)" : "var(--tool-muted)" }}>{meta?.label ?? "Another look"}</span>
+      <span className="text-xs" style={{ color: selected ? "var(--tool-text)" : "var(--tool-muted)" }}>{meta?.label ?? "Otro diseño"}</span>
     </button>
   );
 }

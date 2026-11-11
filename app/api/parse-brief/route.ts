@@ -23,7 +23,7 @@ const Body = z.object({
 export async function POST(request: Request) {
   const body = Body.safeParse(await request.json().catch(() => null));
   if (!body.success) {
-    return NextResponse.json({ error: "Bad request" }, { status: 400 });
+    return NextResponse.json({ error: "La solicitud no es válida." }, { status: 400 });
   }
 
   try {
@@ -31,20 +31,15 @@ export async function POST(request: Request) {
 
     if (answers?.length) {
       const brief = await completeBrief({ description, partial: partial ?? {}, answers });
-      return brief
-        ? NextResponse.json({ status: "complete", brief })
-        : NextResponse.json(
-            { error: "Could not build a brief from those answers" },
-            { status: 502 },
-          );
+      return NextResponse.json({ status: "complete", brief });
     }
 
     return NextResponse.json(await parseBrief(description));
-  } catch (error) {
+  } catch {
     // Transport failure after retries. The caller shows a retry affordance;
     // it never silently proceeds with an empty brief.
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Model unavailable" },
+      { error: "No se pudo conectar con el servicio de IA. Inténtalo de nuevo." },
       { status: 502 },
     );
   }
