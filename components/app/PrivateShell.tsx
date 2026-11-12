@@ -78,7 +78,7 @@ export function PrivateShell({ children }: { children: ReactNode }) {
     <div className={styles.appFrame} onClick={() => setContextMenu(null)}>
       <aside className={`${styles.appSidebar} ${sidebarCollapsed ? styles.appSidebarCollapsed : ""}`}>
         <div className={styles.sidebarTop}>
-          <Link className={styles.headerBrand} href="/" aria-label="LPG, nuevo proyecto" aria-hidden={sidebarCollapsed} tabIndex={sidebarCollapsed ? -1 : undefined}>LPG</Link>
+          <Link className={styles.headerBrand} href="/" aria-label="Landing IA, nuevo proyecto" aria-hidden={sidebarCollapsed} tabIndex={sidebarCollapsed ? -1 : undefined}>Landing IA</Link>
           <button className={styles.sidebarCollapseButton} type="button" aria-label={sidebarCollapsed ? "Abrir barra lateral" : "Contraer barra lateral"} title={sidebarCollapsed ? "Abrir barra lateral" : "Contraer barra lateral"} aria-expanded={!sidebarCollapsed} onClick={() => setSidebarCollapsed((collapsed) => !collapsed)}>
             {sidebarCollapsed ? <PanelLeftOpen aria-hidden="true" /> : <PanelLeftClose aria-hidden="true" />}
           </button>

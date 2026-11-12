@@ -1,5 +1,6 @@
 import type { BusinessBrief, Vibe } from "@/lib/schemas/brief";
 import { rngFrom, seedFrom } from "@/lib/seed";
+import { styleOf } from "@/lib/styles/landingStyles";
 
 /**
  * First pass. Produces the accent pair that drives gradients, glows and buttons.
@@ -74,12 +75,14 @@ export function hslToHex({ h, s, l }: Hsl): string {
 export type AccentPair = { accent: string; accentAlt: string };
 
 export function derivePalette(brief: BusinessBrief, projectId: string): AccentPair {
-  const primaryVibe = brief.vibe[0];
+  const primaryVibe = styleOf(brief)?.vibe ?? brief.vibe[0];
   const rng = rngFrom(seedFrom(projectId, brief.businessName));
+  // A picked style brings its own accent; the person's brand colour still wins.
+  const fixedColor = brief.brandColor ?? styleOf(brief)?.accent;
 
   let base: Hsl;
-  if (brief.brandColor) {
-    const brand = hexToHsl(brief.brandColor);
+  if (fixedColor) {
+    const brand = hexToHsl(fixedColor);
     // Keep their hue; pull extremes back into a band that survives both themes.
     base = {
       h: brand.h,

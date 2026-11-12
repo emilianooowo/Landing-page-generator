@@ -103,7 +103,7 @@ export function FeaturesDepthBento({ section }: Props) {
                 <Muted>{lead.body}</Muted>
               </div>
               <div className="min-h-[14rem] overflow-hidden" style={{ borderRadius: "calc(var(--radius) * 1.1)" }}>
-                <CuratedImage image={content.image} seed={style.seed} />
+                <CuratedImage image={content.image} photo={style.photo} seed={style.seed} editable />
               </div>
             </TiltCard>
           </motion.li>

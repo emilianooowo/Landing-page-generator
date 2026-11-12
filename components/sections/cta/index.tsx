@@ -2,6 +2,7 @@
 
 import { motion } from "framer-motion";
 import type { CtaSection } from "@/lib/schemas/cta";
+import { useLinkProps } from "@/components/sections/PageMode";
 import { CursorGlow, CuratedImage, FloatingShapes, GlowButton, MeshGradient, ParallaxLayer, TiltCard } from "@/components/fx";
 import { Container, Display, Lede, Muted, Reveal, SectionShell } from "@/components/sections/shared";
 
@@ -64,11 +65,12 @@ export function CtaGlowBand({ section }: Props) {
 /** On a filled band the primary button flips to the page surface so it still reads as the brightest thing. */
 function CtaInverse({ section }: Props) {
   const { content } = section;
+  const primaryLink = useLinkProps(content.primaryCta.href);
+  const secondaryLink = useLinkProps(content.secondaryCta?.href ?? "#");
   return (
     <div className="flex flex-wrap items-center justify-center gap-3">
       <motion.a
-        href={content.primaryCta.href}
-        onClick={(e) => e.preventDefault()}
+        {...primaryLink}
         whileHover={{ scale: 1.035, y: -1 }}
         whileTap={{ scale: 0.97 }}
         transition={{ type: "spring", stiffness: 380, damping: 22 }}
@@ -78,7 +80,7 @@ function CtaInverse({ section }: Props) {
         {content.primaryCta.label}
       </motion.a>
       {content.secondaryCta && (
-        <a href={content.secondaryCta.href} onClick={(e) => e.preventDefault()} className="rounded-full px-6 py-4 font-medium" style={{ border: "1px solid rgba(255,255,255,0.4)", color: "inherit" }}>
+        <a {...secondaryLink} className="rounded-full px-6 py-4 font-medium" style={{ border: "1px solid rgba(255,255,255,0.4)", color: "inherit" }}>
           {content.secondaryCta.label}
         </a>
       )}
@@ -135,7 +137,7 @@ export function CtaSplitOrbital({ section }: Props) {
           >
             <TiltCard max={6} className="overflow-hidden p-2" style={{ borderRadius: "calc(var(--radius) * 1.3)" }}>
               <div className="overflow-hidden" style={{ borderRadius: "calc(var(--radius) * 1.1)", aspectRatio: "1" }}>
-                <CuratedImage image={content.image} seed={style.seed + 51} />
+                <CuratedImage image={content.image} photo={style.photo} seed={style.seed + 51} editable />
               </div>
             </TiltCard>
           </motion.div>

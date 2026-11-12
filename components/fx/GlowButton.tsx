@@ -2,6 +2,7 @@
 
 import { motion, useMotionValue, useSpring, useTransform } from "framer-motion";
 import type { MouseEvent } from "react";
+import { useLinkProps } from "@/components/sections/PageMode";
 
 type Props = {
   label: string;
@@ -35,11 +36,11 @@ export function GlowButton({ label, href = "#", variant = "primary", tilt = fals
   }
 
   const primary = variant === "primary";
+  const link = useLinkProps(href);
 
   return (
     <motion.a
-      href={href}
-      onClick={(e) => e.preventDefault()}
+      {...link}
       onMouseMove={onMove}
       onMouseLeave={onLeave}
       whileHover={{ scale: 1.035, y: -1 }}

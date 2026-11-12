@@ -1,11 +1,14 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 import { FollowUpPrompt } from "@/components/intake";
+import { StylePicker } from "@/components/intake/StylePicker";
 import { PublicShell } from "@/components/app/PublicShell";
 import type { BusinessBrief, FollowUpQuestion } from "@/lib/schemas/brief";
+import type { LandingStyleId } from "@/lib/schemas/primitives";
 import { newProjectId, saveProject } from "@/lib/store";
+import { recommendedStyle } from "@/lib/styles/landingStyles";
 import styles from "./home.module.css";
 
 const SUGGESTIONS = [
@@ -43,23 +46,47 @@ export default function Home() {
   const router = useRouter();
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const [description, setDescription] = useState("");
-  const [textareaHeight, setTextareaHeight] = useState(38);
   const [questions, setQuestions] = useState<FollowUpQuestion[]>([]);
   const [answers, setAnswers] = useState<Record<number, string>>({});
   const [partial, setPartial] = useState<Partial<BusinessBrief>>({});
+  /** Set once the brief is complete: the last step is choosing the style. */
+  const [pendingBrief, setPendingBrief] = useState<BusinessBrief | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
+  // Grow the description box with its text (up to the CSS max-height, then it
+  // scrolls). Measured with the height transition off, because measuring while
+  // it animates returns the in-between height. Set on the element directly, so
+  // an unchanged height can't leave it stuck at the measuring size.
+  useLayoutEffect(() => {
     const textarea = textareaRef.current;
     if (!textarea) return;
-    textarea.style.height = "0px";
-    setTextareaHeight(Math.max(38, Math.min(textarea.scrollHeight, 240)));
-  }, [description]);
 
-  function go(brief: BusinessBrief) {
+    const fit = () => {
+      const previous = textarea.style.height;
+      textarea.style.transition = "none";
+      textarea.style.height = "auto";
+      const next = `${Math.min(textarea.scrollHeight, 240)}px`;
+      textarea.style.height = previous || next;
+      void textarea.offsetHeight; // commit the old height so the transition starts from it
+      textarea.style.transition = "";
+      textarea.style.height = next;
+    };
+
+    fit();
+    window.addEventListener("resize", fit);
+    return () => window.removeEventListener("resize", fit);
+    // Re-run when the box remounts (coming back from the questions or style step).
+  }, [description, pendingBrief, questions.length]);
+
+  function chooseStyle(brief: BusinessBrief) {
+    setPendingBrief(brief);
+  }
+
+  function go(brief: BusinessBrief, style: LandingStyleId) {
+    setBusy(true);
     const id = newProjectId();
-    const project = { id, description, brief, sections: [], createdAt: new Date().toISOString() };
+    const project = { id, description, brief: { ...brief, style }, sections: [], createdAt: new Date().toISOString() };
     saveProject(project);
     router.push(`/project/${id}`);
   }
@@ -69,7 +96,7 @@ export default function Home() {
     setError(null);
     try {
       const outcome = await post("/api/parse-brief", { description });
-      if (outcome.status === "complete" && outcome.brief) return go(outcome.brief);
+      if (outcome.status === "complete" && outcome.brief) return chooseStyle(outcome.brief);
       setPartial(outcome.partial ?? {});
       setQuestions(outcome.questions ?? []);
     } catch (e) {
@@ -88,7 +115,7 @@ export default function Home() {
         partial,
         answers: questions.map((question, i) => ({ question, answer: answers[i] })),
       });
-      if (outcome.status === "complete" && outcome.brief) return go(outcome.brief);
+      if (outcome.status === "complete" && outcome.brief) return chooseStyle(outcome.brief);
       setError("Aún falta un poco de información. Agrega más detalles a tu descripción.");
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
@@ -106,17 +133,24 @@ export default function Home() {
     <main className={styles.homePage}>
       <section className={styles.content} aria-labelledby="home-title">
         <div className={styles.intro}>
-          <h1 id="home-title">Cuéntanos tu emprendimiento</h1>
+          <h1 id="home-title">{pendingBrief ? "Elige el estilo de tu landing" : "Cuéntanos tu emprendimiento"}</h1>
         </div>
 
-        {questions.length === 0 ? (
+        {pendingBrief ? (
+          <StylePicker
+            recommended={recommendedStyle(pendingBrief)}
+            businessLabel={pendingBrief.hasBusinessName && pendingBrief.businessName.trim() ? pendingBrief.businessName : "Tu emprendimiento"}
+            busy={busy}
+            onBack={() => setPendingBrief(null)}
+            onConfirm={(style) => go(pendingBrief, style)}
+          />
+        ) : questions.length === 0 ? (
           <div className={styles.formArea}>
             <form className={styles.describeBox} onSubmit={(event) => { event.preventDefault(); void start(); }}>
               <textarea
                 ref={textareaRef}
                 className={styles.textarea}
                 rows={1}
-                style={{ height: textareaHeight }}
                 value={description}
                 onChange={(event) => updateDescription(event.target.value)}
                 placeholder="Cuéntanos qué ofreces…"

@@ -109,13 +109,13 @@ export function HeroFloatingGlassSplit({ section }: Props) {
           >
             <TiltCard max={5} className="overflow-hidden p-2" style={{ borderRadius: "calc(var(--radius) * 1.3)" }}>
               <div className="overflow-hidden" style={{ borderRadius: "calc(var(--radius) * 1.1)", aspectRatio: "4 / 3" }}>
-                <CuratedImage image={content.image} seed={style.seed} />
+                <CuratedImage image={content.image} photo={style.photo} seed={style.seed} editable />
               </div>
             </TiltCard>
           </motion.div>
           <motion.div
             aria-hidden
-            className="absolute -bottom-6 -left-6 hidden @md:block"
+            className="pointer-events-none absolute -bottom-6 -left-6 hidden @md:block"
             initial={{ opacity: 0, y: 16 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}

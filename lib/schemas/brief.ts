@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { hexColor, IMAGE_CATEGORIES, SectionType, text } from "./primitives";
+import { hexColor, IMAGE_CATEGORIES, LandingStyleId, SectionType, text } from "./primitives";
 
 /**
  * The internal structured brief. The user never sees any of these field names —
@@ -42,6 +42,12 @@ export const BusinessBrief = z.object({
   hasCustomers: z.boolean().default(false),
   /** Which sections this page gets, in render order. */
   sections: z.array(SectionType).min(2).max(4),
+  /**
+   * Visual style picked by the person in the creation flow. Never inferred by
+   * the model (it is left out of BriefParse); absent on older projects, which
+   * then fall back to the vibe-driven look.
+   */
+  style: LandingStyleId.optional(),
 });
 export type BusinessBrief = z.infer<typeof BusinessBrief>;
 
@@ -63,7 +69,7 @@ export type FollowUpQuestion = z.infer<typeof FollowUpQuestion>;
  * by re-parsing `brief` against BusinessBrief rather than trusting a status flag.
  */
 export const BriefParse = z.object({
-  brief: BusinessBrief.partial(),
+  brief: BusinessBrief.omit({ style: true }).partial(),
   questions: z.array(FollowUpQuestion).max(2).default([]),
 });
 export type BriefParse = z.infer<typeof BriefParse>;

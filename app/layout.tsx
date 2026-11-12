@@ -4,7 +4,7 @@ import { fontClassNames } from "./fonts";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Generador de páginas para emprendimientos | LPG",
+  title: "Landing IA",
   description: "Crea una página para tu emprendimiento con solo contarnos tu idea.",
 };
 

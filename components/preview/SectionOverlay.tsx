@@ -5,6 +5,7 @@ import { useState } from "react";
 import { Sparkles } from "lucide-react";
 import { SectionChooser } from "@/components/chooser/SectionChooser";
 import type { Section } from "@/lib/schemas/section";
+import { buildHref, LINK_KINDS, parseHref, type LinkKind } from "@/lib/links";
 import { sectionElements, updatePath, type SectionElement } from "@/lib/sections/elements";
 import type { PageTheme } from "./ThemeToggle";
 
@@ -264,10 +265,95 @@ function SectionTextFields({
               }}
               style={{ ...fieldStyle, borderRadius: "0.65rem", padding: "0.6rem 0.7rem", fontSize: "0.85rem" }}
             />
+            {(entry.path === "primaryCta.label" || entry.path === "secondaryCta.label") && (
+              <LinkField section={section} ctaKey={entry.path === "primaryCta.label" ? "primaryCta" : "secondaryCta"} onChange={onChange} />
+            )}
           </div>
         );
       })}
       <p className="text-[0.7rem]" style={{ color: "var(--page-muted)" }}>Los cambios se guardan automáticamente.</p>
+    </div>
+  );
+}
+
+const LINK_HINT: Record<LinkKind, string> = {
+  none: "El botón no lleva a ningún lado todavía.",
+  whatsapp: "Abrirá un chat de WhatsApp con ese número. Si tiene 10 dígitos, se agrega +52.",
+  phone: "En el celular, iniciará una llamada a ese número. Si tiene 10 dígitos, se agrega +52.",
+  email: "Abrirá el correo de la visita para escribirte.",
+  url: "Abrirá esa página en una pestaña nueva.",
+};
+
+const LINK_ERROR: Record<LinkKind, string> = {
+  none: "",
+  whatsapp: "Escribe un número de al menos 10 dígitos.",
+  phone: "Escribe un número de al menos 10 dígitos.",
+  email: "Escribe un correo válido, por ejemplo nombre@ejemplo.com.",
+  url: "Escribe una dirección válida, por ejemplo www.tusitio.com.",
+};
+
+/**
+ * Where a button leads. Saved as soon as the value is valid; an invalid or
+ * empty value keeps the previous link until it's fixed.
+ */
+function LinkField({
+  section,
+  ctaKey,
+  onChange,
+}: {
+  section: Section;
+  ctaKey: "primaryCta" | "secondaryCta";
+  onChange: (section: Section) => void;
+}) {
+  const content = section.content as unknown as Record<string, { label: string; href: string }>;
+  const cta = content[ctaKey];
+  const initial = parseHref(cta?.href);
+  const [kind, setKind] = useState<LinkKind>(initial.kind);
+  const [value, setValue] = useState(initial.value);
+  if (!cta) return null;
+
+  const meta = LINK_KINDS.find((k) => k.kind === kind)!;
+  const invalid = kind !== "none" && value.trim() !== "" && !buildHref(kind, value);
+
+  function save(nextKind: LinkKind, nextValue: string) {
+    const href = buildHref(nextKind, nextValue);
+    if (!href || (nextKind !== "none" && !nextValue.trim())) return;
+    onChange({ ...section, content: { ...content, [ctaKey]: { ...cta, href } } } as unknown as Section);
+  }
+
+  return (
+    <div className="mt-1 grid gap-1.5 rounded-xl p-2" style={{ background: "color-mix(in srgb, var(--page-text) 4%, transparent)" }}>
+      <span>Al pulsar el botón…</span>
+      <div className="flex gap-2">
+        <select
+          value={kind}
+          aria-label="Tipo de enlace del botón"
+          onChange={(event) => {
+            const next = event.target.value as LinkKind;
+            setKind(next);
+            if (next === "none") setValue("");
+            save(next, next === "none" ? "" : value);
+          }}
+          style={{ ...fieldStyle, width: "auto", padding: "0.45rem 0.55rem", fontSize: "0.8rem", resize: undefined }}
+        >
+          {LINK_KINDS.map((option) => <option key={option.kind} value={option.kind}>{option.label}</option>)}
+        </select>
+        {kind !== "none" && (
+          <input
+            value={value}
+            inputMode={kind === "whatsapp" || kind === "phone" ? "tel" : kind === "email" ? "email" : "url"}
+            placeholder={meta.placeholder}
+            aria-label={meta.label}
+            aria-invalid={invalid}
+            onChange={(event) => {
+              setValue(event.target.value);
+              save(kind, event.target.value);
+            }}
+            style={{ ...fieldStyle, minWidth: 0, flex: 1, padding: "0.45rem 0.6rem", fontSize: "0.8rem", borderColor: invalid ? "var(--app-danger, #a43349)" : undefined }}
+          />
+        )}
+      </div>
+      <span style={{ color: invalid ? "var(--app-danger, #a43349)" : undefined }}>{invalid ? LINK_ERROR[kind] : LINK_HINT[kind]}</span>
     </div>
   );
 }

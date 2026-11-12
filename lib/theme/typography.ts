@@ -1,13 +1,12 @@
 import type { BusinessBrief, Vibe } from "@/lib/schemas/brief";
 import type { SectionStyle } from "@/lib/schemas/primitives";
+import { styleOf, type DisplayFace } from "@/lib/styles/landingStyles";
 
 /**
  * Two page-level decisions that come from the vibe rather than the section:
  * which display face the headlines use, and how the whole page moves.
  * Both land as CSS variables on .page-scope so every variant inherits them.
  */
-
-type DisplayFace = "serif" | "grotesk" | "round";
 
 const FACE_BY_VIBE: Record<Vibe, DisplayFace> = {
   premium: "serif",
@@ -33,7 +32,7 @@ const PERSONALITY: Record<SectionStyle["motion"], { quick: number; standard: num
 };
 
 export function pageScopeVars(brief: BusinessBrief, motion: SectionStyle["motion"]): React.CSSProperties {
-  const face = FACE_BY_VIBE[brief.vibe[0]] ?? "grotesk";
+  const face = styleOf(brief)?.face ?? FACE_BY_VIBE[brief.vibe[0]] ?? "grotesk";
   const p = PERSONALITY[motion];
   return {
     "--font-display": FACE_VAR[face],

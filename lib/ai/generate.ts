@@ -45,6 +45,8 @@ import {
 import { DEFAULT_CONTACT_ACTION, isOnlineSales } from "@/lib/policy";
 import { findElement, updatePath } from "@/lib/sections/elements";
 import { seedFrom } from "@/lib/seed";
+import { carryOver, withoutLinks } from "@/lib/sections/personal";
+import { styleOf } from "@/lib/styles/landingStyles";
 import { derivePalette } from "@/lib/theme/palette";
 
 /**
@@ -166,6 +168,18 @@ function buildStyle(
     brief,
     projectId,
   );
+
+  const chosen = styleOf(brief);
+  if (chosen) {
+    return SectionStyle.parse({
+      accent,
+      accentAlt,
+      seed: seedFrom(projectId, sectionId),
+      motion: chosen.motion,
+      floatingShapes: chosen.floatingShapes,
+      cursorGlow: chosen.cursorGlow,
+    });
+  }
 
   const lively =
     brief.vibe.includes("bold") ||
@@ -390,7 +404,7 @@ export async function generateSection(
         });
 
         return {
-          section: built.section,
+          section: withoutLinks(built.section),
           status: "valid",
           attempts,
         };
@@ -436,10 +450,17 @@ export async function generateSection(
     brief,
   );
 
+  // Keep the picked style's look even on the fallback path: use its first
+  // layout that the generic fallback content satisfies, else the default one.
+  const fallbackVariant =
+    (styleOf(brief)?.variants[type] ?? []).find(
+      (variant) => validateGenerated(type, { variant, content: safe.content }).ok,
+    ) ?? safe.variant;
+
   const built = assemble({
     id: sectionId,
     type,
-    variant: safe.variant,
+    variant: fallbackVariant,
     content: safe.content,
     brief,
     projectId,
@@ -461,7 +482,7 @@ export async function generateSection(
   });
 
   return {
-    section: built.section,
+    section: withoutLinks(built.section),
     status: "fallback",
     attempts,
   };
@@ -633,7 +654,8 @@ export async function editSection(
         });
 
         return {
-          section: built.section,
+          // The person's photo and button links survive any AI edit.
+          section: carryOver(args.section, built.section),
           status: "valid",
           attempts,
         };
@@ -698,6 +720,8 @@ export function cleanBriefParse(raw: unknown): unknown {
   const cleaned: Record<string, unknown> = {};
   for (const [key, value] of Object.entries(brief as Record<string, unknown>)) {
     if (value === null || value === undefined) continue;
+    // The visual style is the person's choice, never the model's.
+    if (key === "style") continue;
     if (typeof value === "string" && !value.trim()) continue;
     // Online sales are out of scope; a missing action makes the UI ask instead.
     if (key === "desiredAction" && typeof value === "string" && isOnlineSales(value)) continue;
@@ -881,6 +905,8 @@ export async function completeBrief(
     ...args.partial,
     ...answerFallbacks,
   };
+  // The visual style is chosen afterwards by the person, never by the model.
+  delete (briefObj as Record<string, unknown>).style;
 
   const directBrief = BusinessBrief.safeParse(briefObj);
   if (directBrief.success) {

@@ -1,5 +1,6 @@
 "use client";
 
+import { PageModeProvider } from "@/components/sections/PageMode";
 import { SectionRenderer } from "@/components/sections/SectionRenderer";
 import { VARIANT_CATALOG } from "@/lib/variants/catalog";
 import type { Section } from "@/lib/schemas/section";
@@ -51,7 +52,10 @@ export function VariantThumbnail({
           style={{ width: THUMB_W, transform: `scale(${SCALE})`, fontFamily: "var(--font-body)" }}
           aria-hidden
         >
-          <SectionRenderer section={section} variantOverride={variant} />
+          {/* Editing mode without image controls: inert links, no upload slot. */}
+          <PageModeProvider value={{ editing: true }}>
+            <SectionRenderer section={section} variantOverride={variant} />
+          </PageModeProvider>
         </div>
       </div>
       <span className="text-xs" style={{ color: selected ? "var(--tool-text)" : "var(--tool-muted)" }}>{meta?.label ?? "Otro diseño"}</span>

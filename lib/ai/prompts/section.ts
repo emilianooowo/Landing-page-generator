@@ -2,7 +2,13 @@ import { LANDING_ONLY_RULE } from "@/lib/policy";
 import type { BusinessBrief } from "@/lib/schemas/brief";
 import type { Section, SectionType } from "@/lib/schemas/section";
 import type { SectionElement } from "@/lib/sections/elements";
+import { styleOf } from "@/lib/styles/landingStyles";
 import { describeVariants } from "@/lib/variants/catalog";
+
+/** Layouts offered to the model for a section: the picked style's, or all. */
+export function variantsFor(brief: BusinessBrief, type: SectionType): string[] | undefined {
+  return styleOf(brief)?.variants[type];
+}
 
 /** Instrucciones editoriales para generar y editar el texto de cada sección. */
 export const SECTION_SYSTEM = `Redacta el contenido de una sección de una página web y elige el diseño que mejor le quede.
@@ -23,6 +29,11 @@ Reglas de redacción:
 Devuelve únicamente JSON.`;
 
 function briefBlock(brief: BusinessBrief): string {
+  const style = styleOf(brief);
+  const styleLine = style
+    ? `
+Estilo de la página elegido por la persona: ${style.name}. Redacción: ${style.copy}`
+    : "";
   return `Emprendimiento: ${brief.businessName}
 A qué se dedica: ${brief.whatTheyDo}
 Para quién: ${brief.audience}
@@ -30,7 +41,7 @@ Tono: ${brief.vibe.join(", ")}
 Qué se busca que haga la visita: ${brief.desiredAction}
 Puntos importantes: ${brief.keyPoints.length ? brief.keyPoints.join("; ") : "no se especificaron"}
 Ya está vendiendo: ${brief.hasCustomers ? "sí" : "no"}
-Estilo de imagen: ${brief.imageWorld}`;
+Estilo de imagen: ${brief.imageWorld}${styleLine}`;
 }
 
 const SECTION_TASK: Record<SectionType, string> = {
@@ -48,7 +59,7 @@ export function buildSectionPrompt(type: SectionType, brief: BusinessBrief): str
 Tarea: ${SECTION_TASK[type]}
 
 Diseños disponibles. Elige el que le quede a este emprendimiento y completa todos los campos obligatorios del diseño:
-${describeVariants(type)}`;
+${describeVariants(type, variantsFor(brief, type))}`;
 }
 
 /** Edita la sección solicitada y conserva intacto el resto de su contenido. */
@@ -70,7 +81,7 @@ ${request.trim()}
 
 Aplica solo el cambio solicitado y escribe el contenido en español de México. Conserva exactamente igual los demás campos: mismas palabras, elementos y orden. ${
     allowVariantChange
-      ? `Puedes cambiar el diseño si la petición trata sobre su apariencia:\n${describeVariants(section.type)}`
+      ? `Puedes cambiar el diseño si la petición trata sobre su apariencia:\n${describeVariants(section.type, variantsFor(brief, section.type))}`
       : `Conserva sin cambios el identificador de diseño "${section.variant}".`
   }`;
 }

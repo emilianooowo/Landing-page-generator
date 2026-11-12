@@ -132,9 +132,16 @@ export const VARIANT_CATALOG: Record<SectionType, VariantMeta[]> = {
   ],
 };
 
-/** Compact list for prompts: `id — guidance (needs: x)`. */
-export function describeVariants(type: SectionType): string {
-  return VARIANT_CATALOG[type]
+/**
+ * Compact list for prompts: `id — guidance (needs: x)`. With `only`, lists just
+ * those ids (in that order) — used to keep a picked landing style coherent.
+ */
+export function describeVariants(type: SectionType, only?: string[]): string {
+  const all = VARIANT_CATALOG[type];
+  const picked = only?.length
+    ? only.map((id) => all.find((v) => v.id === id)).filter((v): v is VariantMeta => Boolean(v))
+    : all;
+  return (picked.length ? picked : all)
     .map((v) => `- ${v.id} — ${v.guidance}${v.needs ? ` (requiere: ${v.needs.join(", ")})` : ""}`)
     .join("\n");
 }

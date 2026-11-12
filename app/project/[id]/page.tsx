@@ -8,7 +8,10 @@ import { PreviewFrame, type PreviewSlot } from "@/components/preview/PreviewFram
 import type { PageTheme } from "@/components/preview/ThemeToggle";
 import { VIEWPORTS, type ViewportKey } from "@/components/preview/ViewportToggle";
 import type { Section } from "@/lib/schemas/section";
+import { uploadPhoto } from "@/lib/photos";
+import { carryOver } from "@/lib/sections/personal";
 import { loadProject, saveProject, type StoredProject } from "@/lib/store";
+import { accentFor } from "@/lib/styles/landingStyles";
 import styles from "../workspace.module.css";
 
 async function post(url: string, body: unknown) {
@@ -84,13 +87,16 @@ export default function Workspace() {
   }
 
   async function generateAll(p: StoredProject) {
+    // Photos and button links are the person's: keep them across a regeneration.
+    const previous = doneSections(slotsRef.current);
     setSlots(p.brief.sections.map((type) => ({ type, state: "pending" })));
     const done: Section[] = [];
     for (const [index, type] of p.brief.sections.entries()) {
       try {
         const result = await post("/api/generate-section", { type, brief: p.brief, projectId: p.id, sectionId: `${type}-${index}` });
-        done.push(result.section);
-        setSlots((current) => current.map((slot, i) => (i === index ? { type, state: "done", section: result.section } : slot)));
+        const section = carryOver(previous.find((s) => s.type === type), result.section);
+        done.push(section);
+        setSlots((current) => current.map((slot, i) => (i === index ? { type, state: "done", section } : slot)));
       } catch (e) {
         setError(e instanceof Error ? e.message : String(e));
         return;
@@ -147,6 +153,38 @@ export default function Workspace() {
     );
   }
 
+  function setPhotoBusy(index: number, photoBusy: boolean) {
+    setSlots((current) => current.map((s, i) => (i === index && s.state === "done" ? { ...s, photoBusy } : s)));
+  }
+
+  function withPhoto(section: Section, photo: Section["style"]["photo"]): Section {
+    return { ...section, style: { ...section.style, photo } } as Section;
+  }
+
+  async function uploadSectionPhoto(index: number, file: File) {
+    if (!project) return;
+    setPhotoBusy(index, true);
+    try {
+      const label = project.brief.hasBusinessName ? project.brief.businessName : project.brief.whatTheyDo;
+      const photo = await uploadPhoto(file, `Foto de ${label}`);
+      setError(null);
+      commit(
+        slotsRef.current.map((s, i) => (i === index && s.state === "done" ? { ...s, section: withPhoto(s.section, photo), photoBusy: false } : s)),
+        { undoable: true },
+      );
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+      setPhotoBusy(index, false);
+    }
+  }
+
+  function removeSectionPhoto(index: number) {
+    commit(
+      slotsRef.current.map((s, i) => (i === index && s.state === "done" ? { ...s, section: withPhoto(s.section, undefined) } : s)),
+      { undoable: true },
+    );
+  }
+
   function changeText(index: number, section: Section) {
     commit(
       slotsRef.current.map((slot, i) => (i === index && slot.state === "done" ? { ...slot, section } : slot)),
@@ -194,18 +232,19 @@ export default function Workspace() {
   const businessName = project.name?.trim() || (project.brief.hasBusinessName && project.brief.businessName.trim()
     ? project.brief.businessName
     : "Tu emprendimiento");
-  const accentColor = normalizeHexColor(project.brief.brandColor ?? "#315d88");
+  const accentColor = normalizeHexColor(accentFor(project.brief));
 
   return (
     <main className={styles.workspacePage}>
       <PreviewFrame
         brief={project.brief}
-        description={project.description}
         slots={slots}
         accentColor={accentColor}
         onEdit={edit}
         onTextChange={changeText}
         onVariant={changeVariant}
+        onPhotoUpload={uploadSectionPhoto}
+        onPhotoRemove={removeSectionPhoto}
         renderToolbar={({ theme, viewport, setViewport, switchTheme }) => (
           <>
             <div className={styles.headerIdentity}>
