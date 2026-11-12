@@ -1,6 +1,6 @@
 .loading {
   min-height: 100svh;
-  background: #fff;
+  background: var(--app-bg);
 }
 
 .missing {
@@ -8,8 +8,8 @@
   min-height: 100svh;
   place-items: center;
   padding: 24px;
-  background: #fff;
-  color: #65595c;
+  background: var(--app-bg);
+  color: var(--app-muted);
   font: 0.95rem/1.5 var(--font-body), system-ui, sans-serif;
   text-align: center;
 }

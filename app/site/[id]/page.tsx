@@ -13,7 +13,7 @@ export default function PublicSitePage() {
   const [project, setProject] = useState<StoredProject | null | undefined>(undefined);
   const scopeRef = useRef<HTMLDivElement>(null);
   const motion = project?.sections[0]?.style.motion ?? "balanced";
-  const accent = project?.brief.brandColor ?? "#7a2638";
+  const accent = project?.brief.brandColor ?? "#315d88";
 
   useEffect(() => setProject(loadProject(id)), [id]);
 

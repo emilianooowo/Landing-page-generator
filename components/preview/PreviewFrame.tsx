@@ -36,7 +36,7 @@ export function PreviewFrame({
   onEdit,
   onTextChange,
   onVariant,
-  renderSidebar,
+  renderToolbar,
 }: {
   brief: BusinessBrief;
   description: string;
@@ -45,12 +45,23 @@ export function PreviewFrame({
   onEdit: (index: number, request: string) => void;
   onTextChange: (index: number, section: Section) => void;
   onVariant: (index: number, variant: string) => void;
-  renderSidebar: (controls: PreviewControls) => ReactNode;
+  renderToolbar: (controls: PreviewControls) => ReactNode;
 }) {
   const [viewport, setViewport] = useState<ViewportKey>("desktop");
   const [theme, setTheme] = useState<PageTheme>("light");
+  const [themeSelectedManually, setThemeSelectedManually] = useState(false);
   const [sweeping, setSweeping] = useState(false);
   const scopeRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const preference = window.matchMedia("(prefers-color-scheme: dark)");
+    const updateFromDevice = () => {
+      if (!themeSelectedManually) setTheme(preference.matches ? "dark" : "light");
+    };
+    updateFromDevice();
+    preference.addEventListener("change", updateFromDevice);
+    return () => preference.removeEventListener("change", updateFromDevice);
+  }, [themeSelectedManually]);
 
   const first = slots.find((s): s is Extract<PreviewSlot, { state: "done" }> => s.state === "done");
   const motion = first?.section.style.motion ?? "balanced";
@@ -63,15 +74,16 @@ export function PreviewFrame({
       el.style.setProperty("--sweep-y", `${((origin.y - r.top) / r.height) * 100}%`);
     }
     setSweeping(true);
+    setThemeSelectedManually(true);
     setTheme(next);
     window.setTimeout(() => setSweeping(false), 950);
   }
 
   return (
     <div className={styles.workspace}>
-      <aside className={styles.sidebar}>
-        {renderSidebar({ theme, viewport, setViewport, switchTheme })}
-      </aside>
+      <header className={styles.editorHeader}>
+        {renderToolbar({ theme, viewport, setViewport, switchTheme })}
+      </header>
 
       <section className={styles.previewColumn} aria-label="Vista previa del sitio">
         <div className={styles.previewSurface}>
