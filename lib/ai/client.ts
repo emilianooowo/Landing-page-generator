@@ -42,6 +42,14 @@ const MODEL =
 const ENDPOINT = "https://api.groq.com/openai/v1/chat/completions";
 
 /**
+ * Groq API key. GROQ_API_KEY is preferred; AI_API_KEY is accepted because
+ * that's the name the README documents for .env.local.
+ */
+export function groqApiKey(): string | undefined {
+  return process.env.GROQ_API_KEY?.trim() || process.env.AI_API_KEY?.trim() || undefined;
+}
+
+/**
  * Extract JSON from a Groq response.
  */
 function parseJson(raw: string): unknown {
@@ -84,11 +92,11 @@ function parseJson(raw: string): unknown {
 }
 
 export const groqJson: ModelCall = async (request) => {
-  const key = process.env.GROQ_API_KEY;
+  const key = groqApiKey();
 
   if (!key) {
     throw new ModelError(
-      "Falta configurar la variable GROQ_API_KEY.",
+      "Falta configurar la variable GROQ_API_KEY (o AI_API_KEY).",
       "auth",
     );
   }

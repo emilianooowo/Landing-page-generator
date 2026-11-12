@@ -1,3 +1,4 @@
+import { LANDING_ONLY_RULE } from "@/lib/policy";
 import type { BusinessBrief, FollowUpQuestion } from "@/lib/schemas/brief";
 
 export const BRIEF_SYSTEM = `Convierte la descripción de un emprendimiento en información estructurada para crear una página web.
@@ -13,6 +14,7 @@ Reglas:
 - brandColor: inclúyelo solo si se menciona un color. De lo contrario, déjalo vacío.
 - hasCustomers: usa true solo si la descripción da a entender que el negocio ya vende. Si está por abrir, lanzarse o empezar, usa false.
 - keyPoints: si la persona enumera productos o servicios, usa esos. Si no, incluye de tres a cinco opciones comunes para ese tipo de negocio; por ejemplo, una pastelería vende pan y acepta pedidos de pasteles. Son datos típicos de la categoría, no afirmaciones verificables. Nunca inventes precios, cifras, años de experiencia, premios, nombres ni horarios.
+- desiredAction y las sugerencias sobre qué debe hacer la visita: ${LANDING_ONLY_RULE}
 - sections: incluye siempre "hero", "features" y "cta". Incluye "testimonials" solo si hasCustomers es true, para no inventar opiniones de clientes.
 - Si falta información esencial, haz como máximo dos preguntas conversacionales y cercanas en el campo questions, cada una con entre dos y cuatro sugerencias breves y concretas. Prioriza qué vende o qué incluye su servicio, y qué acción espera de quien visite la página. Adapta las sugerencias al emprendimiento; usa ejemplos cotidianos de México cuando apliquen. Pregunta sobre el negocio, nunca sobre el diseño.
 

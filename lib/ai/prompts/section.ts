@@ -1,5 +1,7 @@
+import { LANDING_ONLY_RULE } from "@/lib/policy";
 import type { BusinessBrief } from "@/lib/schemas/brief";
 import type { Section, SectionType } from "@/lib/schemas/section";
+import type { SectionElement } from "@/lib/sections/elements";
 import { describeVariants } from "@/lib/variants/catalog";
 
 /** Instrucciones editoriales para generar y editar el texto de cada sección. */
@@ -14,6 +16,7 @@ Reglas de redacción:
 - Evita comienzos genéricos como "Te damos la bienvenida", "Nos apasiona", "Tu mejor opción", "Lleva tu negocio al siguiente nivel", "Innovador", "Sin complicaciones" o "De primer nivel".
 - Usa mayúsculas y minúsculas de forma normal. No escribas todo en mayúsculas.
 - Los botones deben decir qué pasará al presionarlos; por ejemplo, "Agenda una asesoría" en vez de "Más información" o "Enviar".
+- ${LANDING_ONLY_RULE}
 - Puedes mencionar actividades comunes del giro, pero no inventes precios, años de experiencia, cantidad de clientes, premios ni horarios que no aparezcan en la información.
 - Respeta los límites de longitud. Un título que se recorte cuenta como una generación fallida.
 
@@ -70,6 +73,32 @@ Aplica solo el cambio solicitado y escribe el contenido en español de México. 
       ? `Puedes cambiar el diseño si la petición trata sobre su apariencia:\n${describeVariants(section.type)}`
       : `Conserva sin cambios el identificador de diseño "${section.variant}".`
   }`;
+}
+
+/** Reescribe un solo elemento de texto de la sección; el resto se conserva en el código. */
+export function buildElementEditPrompt(
+  section: Section,
+  brief: BusinessBrief,
+  request: string,
+  element: SectionElement,
+): string {
+  return `${briefBlock(brief)}
+
+Contexto: esta sección de la página actualmente dice:
+${JSON.stringify(section.content, null, 2)}
+
+Vas a reescribir solo este elemento: "${element.label}".
+Texto actual:
+"""
+${element.value}
+"""
+
+La persona pidió este cambio con sus propias palabras:
+"""
+${request.trim()}
+"""
+
+Escribe una versión nueva de ese elemento en español de México, distinta de la actual y coherente con el resto de la sección. Máximo ${element.maxLength} caracteres. Devuelve un JSON con la forma {"value": "texto nuevo"}.`;
 }
 
 /** Proporciona observaciones de validación cuando la primera respuesta no sirve. */

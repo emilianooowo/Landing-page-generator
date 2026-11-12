@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
-import { CirclePlus, ExternalLink, Laptop, Moon, RotateCw, Smartphone, Sun, Tablet } from "lucide-react";
+import { CirclePlus, ExternalLink, Laptop, Moon, RotateCw, Smartphone, Sun, Tablet, Undo2 } from "lucide-react";
 import { PreviewFrame, type PreviewSlot } from "@/components/preview/PreviewFrame";
 import type { PageTheme } from "@/components/preview/ThemeToggle";
 import { VIEWPORTS, type ViewportKey } from "@/components/preview/ViewportToggle";
@@ -18,7 +18,7 @@ async function post(url: string, body: unknown) {
   } catch {
     throw new Error("No se pudo conectar con el servicio. Inténtalo de nuevo.");
   }
-  let data: { error?: string; section: Section };
+  let data: { error?: string; section: Section; status?: "valid" | "fallback" | "unchanged" };
   try {
     data = await response.json();
   } catch {
@@ -31,7 +31,7 @@ async function post(url: string, body: unknown) {
 function genericPageTitle(description: string, brief: StoredProject["brief"]): string {
   const context = [description, brief.whatTheyDo, brief.desiredAction, ...brief.keyPoints].join(" ").toLocaleLowerCase("es-MX");
   if (/cat[aá]logo|ver productos|ver lo que ofrezco|lista de productos/.test(context)) return "Página web de catálogo";
-  if (/venta|vendo|vender|pedido|comprar|comida|postre|accesorio|producto/.test(context)) return "Página web de venta";
+  if (/venta|vendo|vender|pedido|comprar|comida|postre|accesorio|producto/.test(context)) return "Página web de productos";
   if (/contact|asesor|consult|clase|materia|agenda|cita|servicio/.test(context)) return "Página web de contacto";
   return "Página web de servicios";
 }
@@ -39,6 +39,14 @@ function genericPageTitle(description: string, brief: StoredProject["brief"]): s
 function normalizeHexColor(color: string): string {
   const shortHex = /^#([0-9a-f]{3})$/i.exec(color);
   return shortHex ? `#${[...shortHex[1]].map((digit) => `${digit}${digit}`).join("")}` : color;
+}
+
+const MAX_UNDO = 20;
+
+type DoneSlot = Extract<PreviewSlot, { state: "done" }>;
+
+function doneSections(list: PreviewSlot[]): Section[] {
+  return list.filter((slot): slot is DoneSlot => slot.state === "done").map((slot) => slot.section);
 }
 
 const VIEWPORT_ICON: Record<ViewportKey, typeof Smartphone> = {
@@ -52,7 +60,14 @@ export default function Workspace() {
   const [project, setProject] = useState<StoredProject | null | undefined>(undefined);
   const [slots, setSlots] = useState<PreviewSlot[]>([]);
   const [error, setError] = useState<string | null>(null);
+  /** Snapshots taken before each AI edit, layout change or regeneration. */
+  const [history, setHistory] = useState<Section[][]>([]);
   const started = useRef(false);
+  /** Latest slots, so an edit that resolves later applies to the current page, not a stale copy. */
+  const slotsRef = useRef<PreviewSlot[]>([]);
+  useEffect(() => {
+    slotsRef.current = slots;
+  }, [slots]);
 
   // Load once, then either resume from stored sections or generate them.
   useEffect(() => {
@@ -69,7 +84,8 @@ export default function Workspace() {
   }, [id]);
 
   function persist(p: StoredProject, sections: Section[]) {
-    const next = { ...p, sections };
+    // Re-read so a change saved meanwhile (e.g. the accent colour) isn't overwritten.
+    const next = { ...(loadProject(p.id) ?? p), sections };
     saveProject(next);
     setProject(next);
   }
@@ -90,34 +106,70 @@ export default function Workspace() {
     persist(loadProject(p.id) ?? p, done);
   }
 
-  async function edit(index: number, request: string) {
+  function remember() {
+    const snapshot = doneSections(slotsRef.current);
+    if (snapshot.length) setHistory((current) => [...current.slice(-(MAX_UNDO - 1)), snapshot]);
+  }
+
+  function commit(next: PreviewSlot[], { undoable }: { undoable: boolean }) {
     if (!project) return;
-    const slot = slots[index];
-    if (slot.state !== "done") return;
-    setSlots((current) => current.map((s, i) => (i === index && s.state === "done" ? { ...s, busy: true } : s)));
+    if (undoable) remember();
+    slotsRef.current = next;
+    setSlots(next);
+    persist(project, doneSections(next));
+  }
+
+  function setBusy(index: number, busy: boolean) {
+    setSlots((current) => current.map((s, i) => (i === index && s.state === "done" ? { ...s, busy } : s)));
+  }
+
+  /** Edit a whole section, or only one of its elements when `target` is given. */
+  async function edit(index: number, request: string, target?: string) {
+    if (!project) return;
+    const slot = slotsRef.current[index];
+    if (!slot || slot.state !== "done") return;
+    setBusy(index, true);
     try {
-      const result = await post("/api/edit-section", { section: slot.section, brief: project.brief, projectId: project.id, request });
-      const next = slots.map((s, i) => (i === index && s.state === "done" ? { ...s, section: result.section as Section, busy: false } : s));
-      setSlots(next);
-      persist(project, next.filter((s): s is Extract<PreviewSlot, { state: "done" }> => s.state === "done").map((s) => s.section));
+      const result = await post("/api/edit-section", { section: slot.section, brief: project.brief, projectId: project.id, request, target });
+      if (result.status === "unchanged") {
+        setError("No se pudo aplicar ese cambio, así que se conservó el texto anterior. Intenta pedirlo de otra forma.");
+        setBusy(index, false);
+        return;
+      }
+      setError(null);
+      commit(
+        slotsRef.current.map((s, i) => (i === index && s.state === "done" ? { ...s, section: result.section, busy: false } : s)),
+        { undoable: true },
+      );
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
-      setSlots((current) => current.map((s, i) => (i === index && s.state === "done" ? { ...s, busy: false } : s)));
+      setBusy(index, false);
     }
   }
 
   function changeVariant(index: number, variant: string) {
-    if (!project) return;
-    const next = slots.map((s, i) => (i === index && s.state === "done" ? { ...s, section: { ...s.section, variant } as Section } : s));
-    setSlots(next);
-    persist(project, next.filter((s): s is Extract<PreviewSlot, { state: "done" }> => s.state === "done").map((s) => s.section));
+    commit(
+      slotsRef.current.map((s, i) => (i === index && s.state === "done" ? { ...s, section: { ...s.section, variant } as Section } : s)),
+      { undoable: true },
+    );
   }
 
   function changeText(index: number, section: Section) {
-    if (!project) return;
-    const next = slots.map((slot, i) => i === index && slot.state === "done" ? { ...slot, section } : slot);
+    commit(
+      slotsRef.current.map((slot, i) => (i === index && slot.state === "done" ? { ...slot, section } : slot)),
+      { undoable: false },
+    );
+  }
+
+  function undo() {
+    const previous = history.at(-1);
+    if (!project || !previous) return;
+    setHistory((current) => current.slice(0, -1));
+    const next: PreviewSlot[] = previous.map((section) => ({ type: section.type, state: "done", section }));
+    slotsRef.current = next;
     setSlots(next);
-    persist(project, next.filter((slot): slot is Extract<PreviewSlot, { state: "done" }> => slot.state === "done").map((slot) => slot.section));
+    persist(project, previous);
+    setError(null);
   }
 
   function changeAccent(color: string) {
@@ -164,8 +216,16 @@ export default function Workspace() {
                     className={`${styles.iconButton} ${styles.iconButtonPrimary}`}
                     aria-label="Volver a generar la página"
                     title="Volver a generar"
-                    onClick={() => { started.current = true; void generateAll(project); }}
+                    onClick={() => { started.current = true; remember(); void generateAll(project); }}
                   ><RotateCw aria-hidden="true" /></button>
+                  <button
+                    type="button"
+                    className={styles.iconButton}
+                    aria-label="Deshacer el último cambio"
+                    title="Deshacer"
+                    disabled={!history.length || slots.some((slot) => slot.state !== "done" || slot.busy)}
+                    onClick={undo}
+                  ><Undo2 aria-hidden="true" /></button>
                   <Link className={styles.iconButton} href="/" aria-label="Crear otra página" title="Crear otra página">
                     <CirclePlus aria-hidden="true" />
                   </Link>
@@ -228,7 +288,7 @@ export default function Workspace() {
               </div>
             </div>
 
-            <p className={styles.businessDescription}>Pasa el cursor sobre una sección para editar su texto o cambiar el diseño.</p>
+            <p className={styles.businessDescription}>Pasa el cursor sobre una sección para editarla. Con IA puedes cambiar la sección completa o un solo elemento, como el título, un botón o un producto, y pedir otra opción las veces que quieras.</p>
             {error && <p className={styles.error} role="alert">{error}</p>}
           </>
         )}

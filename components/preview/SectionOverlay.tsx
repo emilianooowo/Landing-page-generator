@@ -2,8 +2,10 @@
 
 import { AnimatePresence, motion } from "framer-motion";
 import { useState } from "react";
+import { Sparkles } from "lucide-react";
 import { SectionChooser } from "@/components/chooser/SectionChooser";
 import type { Section } from "@/lib/schemas/section";
+import { sectionElements, updatePath, type SectionElement } from "@/lib/sections/elements";
 import type { PageTheme } from "./ThemeToggle";
 
 const PART_NAME: Record<Section["type"], string> = {
@@ -13,18 +15,39 @@ const PART_NAME: Record<Section["type"], string> = {
   cta: "el cierre de la página",
 };
 
-const SUGGESTIONS: Record<Section["type"], string[]> = {
+const SECTION_SUGGESTIONS: Record<Section["type"], string[]> = {
   hero: ["Haz el título más corto", "Dale un tono más cercano", "Hazlo más convincente", "Cambia el texto del botón"],
   features: ["Detalla mejor cada punto", "Agrega otro punto", "Usa un tono menos vendedor"],
   testimonials: ["Acorta las opiniones", "Dales un tono más casual"],
   cta: ["Hazlo más relajado", "Cambia el texto del botón", "Agrega una frase que dé confianza"],
 };
 
+/** For a single element, the most useful request is simply "another take". */
+const ELEMENT_SUGGESTIONS = ["Dame otra opción", "Hazlo más corto", "Más cercano", "Más formal"];
+
+const WHOLE_SECTION = "";
+
+const fieldStyle = {
+  width: "100%",
+  resize: "vertical",
+  border: "1px solid var(--page-border)",
+  borderRadius: "0.75rem",
+  padding: "0.75rem",
+  outlineColor: "var(--accent)",
+  background: "var(--page-bg)",
+  color: "var(--page-text)",
+} as const;
+
+function preview(value: string, max = 34): string {
+  return value.length > max ? `${value.slice(0, max - 1).trimEnd()}…` : value;
+}
+
 /**
  * Sits over a rendered section. On hover, shows one button. Clicking opens a
- * panel with a free-text box and a few suggestions, plus the layout chooser.
- * No section names, no variant ids; everything is phrased as the part of the
- * page the person is looking at.
+ * panel to edit the text by hand or with AI — for the whole section or for one
+ * element of it (a title, a button, the second product…) — plus the layout
+ * chooser. No section names, no variant ids; everything is phrased as the part
+ * of the page the person is looking at.
  */
 export function SectionOverlay({
   section,
@@ -37,24 +60,41 @@ export function SectionOverlay({
   section: Section;
   theme: PageTheme;
   busy: boolean;
-  onEdit: (request: string) => void;
+  onEdit: (request: string, target?: string) => void;
   onTextChange: (section: Section) => void;
   onVariant: (variant: string) => void;
 }) {
   const [open, setOpen] = useState(false);
   const [text, setText] = useState("");
   const [mode, setMode] = useState<"text" | "ai">("text");
+  const [target, setTarget] = useState(WHOLE_SECTION);
+
+  const elements = sectionElements(section);
+  // A whole-section edit can remove the element that was selected (e.g. a product).
+  const activeElement = elements.find((element) => element.path === target);
 
   function submit(request: string) {
-    if (!request.trim()) return;
-    setOpen(false);
+    if (!request.trim() || busy) return;
     setText("");
-    onEdit(request.trim());
+    if (activeElement) {
+      // Stay open: iterating on one element means asking again and comparing.
+      onEdit(request.trim(), activeElement.path);
+    } else {
+      setOpen(false);
+      onEdit(request.trim());
+    }
   }
+
+  function askAiFor(element: SectionElement) {
+    setTarget(element.path);
+    setMode("ai");
+  }
+
+  const busyLabel = activeElement ? `“${activeElement.label}”` : PART_NAME[section.type];
 
   return (
     <>
-      <div className="group pointer-events-none absolute inset-0 z-40">
+      <div className="pointer-events-none absolute inset-0 z-40">
         <div
           className="absolute inset-0 opacity-0 transition-opacity duration-200 group-hover:opacity-100"
           style={{ boxShadow: "inset 0 0 0 2px color-mix(in srgb, var(--tool-accent) 60%, transparent)" }}
@@ -63,7 +103,7 @@ export function SectionOverlay({
           type="button"
           onClick={() => setOpen(true)}
           disabled={busy}
-          className="tool-button pointer-events-auto absolute right-3 top-3 opacity-0 shadow-lg transition-opacity duration-200 group-hover:opacity-100"
+          className="tool-button pointer-events-auto absolute right-3 top-3 opacity-0 shadow-lg transition-opacity duration-200 group-hover:opacity-100 focus-visible:opacity-100 [@media(hover:none)]:opacity-100"
           style={{ background: "var(--tool-bg)" }}
         >
           Editar {PART_NAME[section.type]}
@@ -75,7 +115,7 @@ export function SectionOverlay({
           className="pointer-events-none absolute inset-0 z-30 grid place-items-center"
           style={{ background: "color-mix(in srgb, var(--page-bg) 70%, transparent)", backdropFilter: "blur(4px)" }}
         >
-          <div className="glass px-4 py-2 text-sm" style={{ color: "var(--page-muted)" }}>Actualizando {PART_NAME[section.type]}…</div>
+          <div className="glass px-4 py-2 text-sm" style={{ color: "var(--page-muted)" }}>Actualizando {busyLabel}…</div>
         </div>
       )}
 
@@ -99,10 +139,43 @@ export function SectionOverlay({
             </div>
 
             {mode === "text" ? (
-              <SectionTextFields section={section} onChange={onTextChange} />
+              <SectionTextFields section={section} elements={elements} onChange={onTextChange} onAskAi={askAiFor} />
             ) : (
               <>
-                <p className="mb-2 text-xs" style={{ color: "var(--page-muted)" }}>¿Qué te gustaría cambiar de {PART_NAME[section.type]}?</p>
+                <label className="mb-3 grid gap-1 text-xs" style={{ color: "var(--page-muted)" }}>
+                  ¿Qué quieres cambiar?
+                  <select
+                    value={activeElement ? activeElement.path : WHOLE_SECTION}
+                    onChange={(event) => setTarget(event.target.value)}
+                    disabled={busy}
+                    style={{ ...fieldStyle, padding: "0.55rem 0.7rem", fontSize: "0.85rem" }}
+                  >
+                    <option value={WHOLE_SECTION}>Toda la sección</option>
+                    {elements.map((element) => (
+                      <option key={element.path} value={element.path}>
+                        {element.label}: {preview(element.value)}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+
+                {activeElement && (
+                  <div className="mb-3 grid gap-1 text-xs" style={{ color: "var(--page-muted)" }}>
+                    Texto actual
+                    <p
+                      aria-live="polite"
+                      style={{ border: "1px dashed var(--page-border)", borderRadius: "0.65rem", padding: "0.6rem 0.7rem", color: "var(--page-text)", fontSize: "0.85rem", opacity: busy ? 0.5 : 1 }}
+                    >
+                      {activeElement.value}
+                    </p>
+                  </div>
+                )}
+
+                <p className="mb-2 text-xs" style={{ color: "var(--page-muted)" }}>
+                  {activeElement
+                    ? `¿Cómo quieres cambiar “${activeElement.label}”?`
+                    : `¿Qué te gustaría cambiar de ${PART_NAME[section.type]}?`}
+                </p>
                 <textarea
                   rows={2}
                   value={text}
@@ -114,15 +187,17 @@ export function SectionOverlay({
                       submit(text);
                     }
                   }}
-                  style={{ width: "100%", resize: "vertical", border: "1px solid var(--page-border)", borderRadius: "0.75rem", padding: "0.75rem", outlineColor: "var(--accent)", background: "var(--page-bg)", color: "var(--page-text)" }}
+                  style={fieldStyle}
                 />
                 <div className="mt-2 flex flex-wrap gap-2">
-                  {SUGGESTIONS[section.type].map((s) => (
-                    <button key={s} type="button" className="tool-button" onClick={() => submit(s)}>{s}</button>
+                  {(activeElement ? ELEMENT_SUGGESTIONS : SECTION_SUGGESTIONS[section.type]).map((s) => (
+                    <button key={s} type="button" className="tool-button" disabled={busy} onClick={() => submit(s)}>{s}</button>
                   ))}
                 </div>
                 <div className="mt-3 flex justify-end">
-                  <button type="button" className="tool-button primary" onClick={() => submit(text)} disabled={!text.trim() || busy}>Actualizar con IA</button>
+                  <button type="button" className="tool-button primary" onClick={() => submit(text)} disabled={!text.trim() || busy}>
+                    {busy ? "Actualizando…" : "Actualizar con IA"}
+                  </button>
                 </div>
               </>
             )}
@@ -138,89 +213,47 @@ export function SectionOverlay({
   );
 }
 
-type TextEntry = { label: string; path: string; maxLength: number; value: string };
-type ContentRecord = Record<string, unknown>;
-
-function readPath(source: unknown, path: string): unknown {
-  return path.split(".").reduce<unknown>((value, key) => {
-    if (!value || typeof value !== "object") return undefined;
-    return (value as Record<string, unknown>)[key];
-  }, source);
-}
-
-function textEntries(section: Section): TextEntry[] {
-  const content = section.content as unknown as ContentRecord;
-  const entries: { label: string; path: string; maxLength: number }[] = [];
-  const add = (label: string, path: string, maxLength: number) => {
-    if (typeof readPath(content, path) === "string") entries.push({ label, path, maxLength });
-  };
-  add("Título", "headline", section.type === "hero" ? 70 : 60);
-  add("Descripción", "subheadline", section.type === "cta" ? 140 : 160);
-
-  if (section.type === "hero" || section.type === "cta") {
-    add("Texto del botón", "primaryCta.label", 28);
-    add("Texto del segundo botón", "secondaryCta.label", 28);
-  }
-  if (section.type === "hero") {
-    add("Texto breve superior", "kicker", 40);
-    const proofPoints = content.proofPoints as { value: string; label: string }[] | undefined;
-    proofPoints?.forEach((_, index) => {
-      add(`Dato ${index + 1}`, `proofPoints.${index}.value`, 12);
-      add(`Descripción del dato ${index + 1}`, `proofPoints.${index}.label`, 28);
-    });
-  }
-  if (section.type === "cta") add("Frase de confianza", "reassurance", 48);
-
-  if (section.type === "features") {
-    (content.items as { title: string; body: string }[]).forEach((_, index) => {
-      add(`Producto o servicio ${index + 1}`, `items.${index}.title`, 40);
-      add(`Descripción ${index + 1}`, `items.${index}.body`, 140);
-    });
-  }
-  if (section.type === "testimonials") {
-    (content.items as { quote: string; name: string; role?: string }[]).forEach((_, index) => {
-      add(`Opinión ${index + 1}`, `items.${index}.quote`, 220);
-      add(`Nombre ${index + 1}`, `items.${index}.name`, 40);
-      add(`Contexto ${index + 1}`, `items.${index}.role`, 60);
-    });
-  }
-
-  return entries.map((entry) => ({ ...entry, value: readPath(content, entry.path) as string }));
-}
-
-function updatePath(source: ContentRecord, path: string, nextValue: string): ContentRecord {
-  const parts = path.split(".");
-  const update = (node: unknown, index: number): unknown => {
-    const key = parts[index];
-    const clone = Array.isArray(node) ? [...node] : { ...(node as ContentRecord) };
-    const record = clone as Record<string, unknown>;
-    if (index === parts.length - 1) record[key] = nextValue;
-    else record[key] = update(record[key], index + 1);
-    return clone;
-  };
-  return update(source, 0) as ContentRecord;
-}
-
-function SectionTextFields({ section, onChange }: { section: Section; onChange: (section: Section) => void }) {
+function SectionTextFields({
+  section,
+  elements,
+  onChange,
+  onAskAi,
+}: {
+  section: Section;
+  elements: SectionElement[];
+  onChange: (section: Section) => void;
+  onAskAi: (element: SectionElement) => void;
+}) {
   const [drafts, setDrafts] = useState<Record<string, string>>({});
-  const content = section.content as unknown as ContentRecord;
-  const entries = textEntries(section);
 
   return (
     <div className="grid max-h-[52vh] gap-3 overflow-y-auto pr-1">
-      {entries.map((entry) => {
+      {elements.map((entry) => {
         const value = drafts[entry.path] ?? entry.value;
         return (
-          <label className="grid gap-1 text-xs" key={entry.path} style={{ color: "var(--page-muted)" }}>
-            {entry.label}
+          <div className="grid gap-1 text-xs" key={entry.path} style={{ color: "var(--page-muted)" }}>
+            <div className="flex items-center justify-between gap-2">
+              <label htmlFor={`${section.id}-${entry.path}`}>{entry.label}</label>
+              <button
+                type="button"
+                className="tool-button"
+                style={{ padding: "0.15rem 0.5rem", fontSize: "0.7rem", display: "inline-flex", alignItems: "center", gap: "0.25rem" }}
+                title={`Cambiar “${entry.label}” con IA`}
+                aria-label={`Cambiar “${entry.label}” con IA`}
+                onClick={() => onAskAi(entry)}
+              >
+                <Sparkles size={12} aria-hidden="true" /> IA
+              </button>
+            </div>
             <textarea
+              id={`${section.id}-${entry.path}`}
               rows={value.length > 62 ? 3 : 1}
               maxLength={entry.maxLength}
               value={value}
               onChange={(event) => {
                 const nextValue = event.target.value;
                 setDrafts((current) => ({ ...current, [entry.path]: nextValue }));
-                if (nextValue.trim()) onChange({ ...section, content: updatePath(content, entry.path, nextValue) } as Section);
+                if (nextValue.trim()) onChange({ ...section, content: updatePath(section.content, entry.path, nextValue) } as Section);
               }}
               onBlur={() => {
                 if (!value.trim()) setDrafts((current) => {
@@ -229,9 +262,9 @@ function SectionTextFields({ section, onChange }: { section: Section; onChange: 
                   return next;
                 });
               }}
-              style={{ width: "100%", resize: "vertical", border: "1px solid var(--page-border)", borderRadius: "0.65rem", padding: "0.6rem 0.7rem", outlineColor: "var(--accent)", background: "var(--page-bg)", color: "var(--page-text)", fontSize: "0.85rem" }}
+              style={{ ...fieldStyle, borderRadius: "0.65rem", padding: "0.6rem 0.7rem", fontSize: "0.85rem" }}
             />
-          </label>
+          </div>
         );
       })}
       <p className="text-[0.7rem]" style={{ color: "var(--page-muted)" }}>Los cambios se guardan automáticamente.</p>

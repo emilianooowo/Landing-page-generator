@@ -42,7 +42,7 @@ export function PreviewFrame({
   description: string;
   slots: PreviewSlot[];
   accentColor: string;
-  onEdit: (index: number, request: string) => void;
+  onEdit: (index: number, request: string, target?: string) => void;
   onTextChange: (index: number, section: Section) => void;
   onVariant: (index: number, variant: string) => void;
   renderSidebar: (controls: PreviewControls) => ReactNode;
@@ -86,13 +86,13 @@ export function PreviewFrame({
               slot.state === "pending" ? (
                 <SectionSkeleton key={`${slot.type}-${i}`} type={slot.type} />
               ) : (
-                <div key={slot.section.id} className="relative">
+                <div key={slot.section.id} className="group relative">
                     <SectionRenderer section={slot.section} accentOverride={accentColor} />
                   <SectionOverlay
                     section={slot.section}
                     theme={theme}
                     busy={Boolean(slot.busy)}
-                    onEdit={(request) => onEdit(i, request)}
+                    onEdit={(request, target) => onEdit(i, request, target)}
                     onTextChange={(section) => onTextChange(i, section)}
                     onVariant={(variant) => onVariant(i, variant)}
                   />

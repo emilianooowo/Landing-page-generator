@@ -12,6 +12,8 @@ const Body = z.object({
   projectId: z.string().min(1),
   request: z.string().trim().min(1).max(400),
   allowVariantChange: z.boolean().optional(),
+  /** Dot path of one text element (e.g. "items.1.title"); omit to edit the whole section. */
+  target: z.string().regex(/^[A-Za-z]+(\.[A-Za-z0-9]+)*$/).max(60).optional(),
 });
 
 /**

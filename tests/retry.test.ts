@@ -5,6 +5,7 @@ import type { BusinessBrief } from "@/lib/schemas/brief";
 
 const brief: BusinessBrief = {
   businessName: "Test Bakery",
+  hasBusinessName: true,
   whatTheyDo: "Bakes bread and cakes to order.",
   audience: "Neighbours",
   vibe: ["warm"],
@@ -57,7 +58,7 @@ describe("generateSection", () => {
     const r = await generateSection(args, { model });
     expect(r.status).toBe("valid");
     expect(r.attempts.map((a) => a.outcome)).toEqual(["schema-error", "valid"]);
-    expect(prompts[1]).toContain("Your previous answer was rejected");
+    expect(prompts[1]).toContain("La respuesta anterior no pasó la validación");
     expect(prompts[1]).toContain("variant");
   });
 
@@ -92,5 +93,67 @@ describe("editSection", () => {
     const r = await editSection({ section: first.section, brief, projectId: "t", request: "shorter" }, { model: sequence([bad]).model });
     expect(r.status).toBe("unchanged");
     expect(r.section).toEqual(first.section);
+  });
+});
+
+describe("landing-only policy", () => {
+  it("asks the model to repair a buy-online button instead of accepting it", async () => {
+    const prompts: string[] = [];
+    let n = 0;
+    const model: ModelCall = async (req) => {
+      prompts.push(req.user);
+      const reply = n++ === 0
+        ? { ...good, content: { ...good.content, primaryCta: { label: "Comprar en línea", href: "#" } } }
+        : good;
+      return { data: reply, raw: "" };
+    };
+    const r = await generateSection(args, { model });
+    expect(r.status).toBe("valid");
+    expect(r.section.content).toMatchObject({ primaryCta: { label: "Order a cake" } });
+    expect(prompts[1]).toContain("primaryCta.label");
+  });
+});
+
+describe("editSection on a single element", () => {
+  it("changes only the targeted element and keeps the layout", async () => {
+    const first = await generateSection(args, { model: sequence([good]).model });
+    const requests: Parameters<ModelCall>[0][] = [];
+    const model: ModelCall = async (req) => {
+      requests.push(req);
+      return { data: { value: "Pan recién hecho cada mañana" }, raw: "" };
+    };
+    const r = await editSection(
+      { section: first.section, brief, projectId: "t", request: "Dame otra opción", target: "headline" },
+      { model },
+    );
+    expect(r.status).toBe("valid");
+    expect(r.section.content.headline).toBe("Pan recién hecho cada mañana");
+    expect(r.section.content.subheadline).toBe(first.section.content.subheadline);
+    expect(r.section.content).toMatchObject({ primaryCta: good.content.primaryCta });
+    expect(r.section.variant).toBe(first.section.variant);
+    expect(requests[0].user).toContain("Título");
+  });
+
+  it("repairs an element that is too long, then gives up without touching the section", async () => {
+    const first = await generateSection(args, { model: sequence([good]).model });
+    const tooLong = { value: "x".repeat(200) };
+    const r = await editSection(
+      { section: first.section, brief, projectId: "t", request: "Más largo", target: "headline" },
+      { model: sequence([tooLong]).model },
+    );
+    expect(r.status).toBe("unchanged");
+    expect(r.attempts.map((a) => a.outcome)).toEqual(["schema-error", "schema-error"]);
+    expect(r.section).toEqual(first.section);
+  });
+
+  it("returns unchanged for an element that does not exist", async () => {
+    const first = await generateSection(args, { model: sequence([good]).model });
+    const { model, calls } = sequence([{ value: "Hola" }]);
+    const r = await editSection(
+      { section: first.section, brief, projectId: "t", request: "x", target: "items.9.title" },
+      { model },
+    );
+    expect(r.status).toBe("unchanged");
+    expect(calls()).toBe(0);
   });
 });

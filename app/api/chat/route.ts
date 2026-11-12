@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { BusinessBrief } from "@/lib/schemas/brief";
 import { buildChatSystemPrompt } from "@/lib/ai/prompts/chatPrompt";
+import { groqApiKey } from "@/lib/ai/client";
 
 export const runtime = "nodejs";
 
@@ -21,7 +22,7 @@ const MODEL = process.env.GROQ_MODEL ?? "openai/gpt-oss-120b";
 const ENDPOINT = "https://api.groq.com/openai/v1/chat/completions";
 
 export async function POST(request: Request) {
-  const key = process.env.GROQ_API_KEY;
+  const key = groqApiKey();
   if (!key) {
     return NextResponse.json(
       { error: "El chat no está configurado." },

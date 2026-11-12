@@ -65,3 +65,67 @@ describe("parseBrief", () => {
     expect(r.status).toBe("complete");
   });
 });
+
+describe("parseBrief with empty fields from the model", () => {
+  it("keeps the usable fields and the model's own questions when some fields are empty strings", async () => {
+    const questions = [
+      { field: "whatTheyDo", question: "¿Qué tipo de cacahuates importas?", suggestions: ["Salados", "Con chile"] },
+      { field: "desiredAction", question: "¿Qué quieres que haga la gente?", suggestions: ["Comprar", "WhatsApp"] },
+    ];
+    const r = await parseBrief("vendo cacahuates importados de japón", {
+      model: modelReturning({
+        brief: { businessName: "", hasBusinessName: false, whatTheyDo: "Vendo cacahuates importados de Japón.", audience: "" },
+        questions,
+      }),
+    });
+    expect(r.status).toBe("needs-input");
+    if (r.status !== "needs-input") return;
+    expect(r.partial).toMatchObject({ hasBusinessName: false, whatTheyDo: "Vendo cacahuates importados de Japón." });
+    expect(r.questions).toEqual(questions);
+  });
+});
+
+describe("parseBrief with over-long suggestions from the model", () => {
+  it("drops only the bad suggestions, and only questions left without enough of them", async () => {
+    const r = await parseBrief("vendo cacahuates importados de japón", {
+      model: modelReturning({
+        brief: { whatTheyDo: "Vendo cacahuates importados de Japón." },
+        questions: [
+          {
+            field: "whatTheyDo",
+            question: "¿Qué cacahuates ofreces?",
+            suggestions: ["Salados", "Tipo de cacahuate (crudo, tostado, con piel)", "Con chile"],
+          },
+          {
+            field: "desiredAction",
+            question: "¿Qué quieres que haga la gente?",
+            suggestions: ["Comprar", "Una sugerencia muchísimo más larga que treinta y dos caracteres"],
+          },
+        ],
+      }),
+    });
+    expect(r.status).toBe("needs-input");
+    if (r.status !== "needs-input") return;
+    expect(r.partial).toMatchObject({ whatTheyDo: "Vendo cacahuates importados de Japón." });
+    expect(r.questions).toEqual([
+      { field: "whatTheyDo", question: "¿Qué cacahuates ofreces?", suggestions: ["Salados", "Con chile"] },
+    ]);
+  });
+});
+
+describe("parseBrief never proposes selling online", () => {
+  it("drops an online-sale action and online-sale suggestions", async () => {
+    const r = await parseBrief("vendo cacahuates importados de japón", {
+      model: modelReturning({
+        brief: { whatTheyDo: "Vendo cacahuates importados de Japón.", desiredAction: "Comprar en línea" },
+        questions: [
+          { field: "desiredAction", question: "¿Qué quieres que haga la gente?", suggestions: ["Comprar en línea", "Mandarme WhatsApp", "Agendar una cita"] },
+        ],
+      }),
+    });
+    expect(r.status).toBe("needs-input");
+    if (r.status !== "needs-input") return;
+    expect(r.partial.desiredAction).toBeUndefined();
+    expect(r.questions[0].suggestions).toEqual(["Mandarme WhatsApp", "Agendar una cita"]);
+  });
+});

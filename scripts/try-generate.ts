@@ -32,6 +32,7 @@ if (!description) {
 
 const FAKE_BRIEF: BusinessBrief = {
   businessName: "Sample Business",
+  hasBusinessName: true,
   whatTheyDo: "A small local business described by the person using the tool.",
   audience: "People nearby who need what they offer",
   vibe: ["warm"],

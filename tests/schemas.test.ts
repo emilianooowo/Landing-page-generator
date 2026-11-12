@@ -8,6 +8,7 @@ import type { BusinessBrief } from "@/lib/schemas/brief";
 
 const brief: BusinessBrief = {
   businessName: "Test Bakery",
+  hasBusinessName: true,
   whatTheyDo: "Bakes bread and cakes to order.",
   audience: "Neighbours",
   vibe: ["warm"],

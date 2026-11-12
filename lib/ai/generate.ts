@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { geminiJson, groqJson, ModelError, type ModelCall } from "./client";
+import { groqJson, ModelError, type ModelCall } from "./client";
 
 import {
   BRIEF_SYSTEM,
@@ -10,6 +10,7 @@ import {
 
 import {
   buildEditPrompt,
+  buildElementEditPrompt,
   buildRepairPrompt,
   buildSectionPrompt,
   SECTION_SYSTEM,
@@ -23,13 +24,14 @@ import {
   resolveBriefParse,
   VIBES,
   type BriefParseOutcome,
-  type FollowUpQuestion,
+  FollowUpQuestion,
 } from "@/lib/schemas/brief";
 
 import {
   IMAGE_CATEGORIES,
   SECTION_TYPES,
   SectionStyle,
+  text,
   type SectionStatus,
   type SectionType,
 } from "@/lib/schemas/primitives";
@@ -40,6 +42,8 @@ import {
   Section,
 } from "@/lib/schemas/section";
 
+import { DEFAULT_CONTACT_ACTION, isOnlineSales } from "@/lib/policy";
+import { findElement, updatePath } from "@/lib/sections/elements";
 import { seedFrom } from "@/lib/seed";
 import { derivePalette } from "@/lib/theme/palette";
 
@@ -127,7 +131,8 @@ async function callWithTransportRetries(
 
       if (
         error.kind === "bad-json" ||
-        error.kind === "client"
+        error.kind === "request" ||
+        error.kind === "auth"
       ) {
         throw error;
       }
@@ -237,6 +242,44 @@ function assemble(
     };
 }
 
+/* ------------------------------------------------------------ validation */
+
+type Validated =
+  | { ok: true; variant: string; content: unknown }
+  | { ok: false; problems: string[] };
+
+/** Keys whose values are not visible copy (links, icon ids, image categories…). */
+const NON_COPY_KEYS = new Set(["href", "icon", "image", "imageCategory", "category"]);
+
+/**
+ * Landing pages only: any visible text that proposes buying or paying online
+ * is a validation problem, fed back to the model like a schema error.
+ */
+export function policyProblems(content: unknown, path = ""): string[] {
+  if (typeof content === "string") {
+    return isOnlineSales(content)
+      ? [`${path}: "${content}" propone comprar o pagar en línea. Esta página no vende en línea; invita a contactar al negocio (WhatsApp, llamada, cita, cotización).`]
+      : [];
+  }
+  if (Array.isArray(content)) {
+    return content.flatMap((item, index) => policyProblems(item, path ? `${path}.${index}` : String(index)));
+  }
+  if (content && typeof content === "object") {
+    return Object.entries(content as Record<string, unknown>)
+      .filter(([key]) => !NON_COPY_KEYS.has(key))
+      .flatMap(([key, value]) => policyProblems(value, path ? `${path}.${key}` : key));
+  }
+  return [];
+}
+
+function validateGenerated(type: SectionType, raw: unknown): Validated {
+  const parsed = GENERATION_SCHEMAS[type].safeParse(raw);
+  if (!parsed.success) return { ok: false, problems: formatIssues(parsed.error) };
+  const policy = policyProblems(parsed.data.content);
+  if (policy.length) return { ok: false, problems: policy };
+  return { ok: true, variant: parsed.data.variant, content: parsed.data.content };
+}
+
 /* ------------------------------------------------------ section generation */
 
 type GenerateArgs = {
@@ -255,7 +298,7 @@ export async function generateSection(
   }: GenerateArgs,
   deps: Deps = {},
 ): Promise<SectionResult> {
-  const model = deps.model ?? (process.env.GROQ_API_KEY ? groqJson : geminiJson);
+  const model = deps.model ?? groqJson;
 
   const attempts: AttemptLog[] = [];
 
@@ -263,6 +306,8 @@ export async function generateSection(
     attempts.push(log);
     deps.onAttempt?.(log);
   };
+
+  const validate = (raw: unknown) => validateGenerated(type, raw);
 
   let user = buildSectionPrompt(
     type,
@@ -324,15 +369,14 @@ export async function generateSection(
       continue;
     }
 
-    const parsed =
-      GENERATION_SCHEMAS[type].safeParse(raw);
+    const parsed = validate(raw);
 
-    if (parsed.success) {
+    if (parsed.ok) {
       const built = assemble({
         id: sectionId,
         type,
-        variant: parsed.data.variant,
-        content: parsed.data.content,
+        variant: parsed.variant,
+        content: parsed.content,
         brief,
         projectId,
         status: "valid",
@@ -368,9 +412,7 @@ export async function generateSection(
       break;
     }
 
-    const problems = formatIssues(
-      parsed.error,
-    );
+    const problems = parsed.problems;
 
     record({
       sectionType: type,
@@ -447,6 +489,12 @@ export async function editSection(
     projectId: string;
     request: string;
     allowVariantChange?: boolean;
+    /**
+     * Dot path of a single text element (see lib/sections/elements.ts).
+     * When set, only that element is rewritten; everything else, including
+     * the layout, stays exactly as it was.
+     */
+    target?: string;
   },
   deps: Deps = {},
 ): Promise<{
@@ -454,7 +502,7 @@ export async function editSection(
   status: "valid" | "unchanged";
   attempts: AttemptLog[];
 }> {
-  const model = deps.model ?? (process.env.GROQ_API_KEY ? groqJson : geminiJson);
+  const model = deps.model ?? groqJson;
 
   const type = args.section.type;
 
@@ -465,12 +513,36 @@ export async function editSection(
     deps.onAttempt?.(log);
   };
 
-  let user = buildEditPrompt(
-    args.section,
-    args.brief,
-    args.request,
-    args.allowVariantChange ?? true,
-  );
+  const element = args.target
+    ? findElement(args.section, args.target)
+    : undefined;
+
+  if (args.target && !element) {
+    return { section: args.section, status: "unchanged", attempts };
+  }
+
+  const ElementReply = element
+    ? z.object({ value: text(element.maxLength) })
+    : undefined;
+
+  const validate = (raw: unknown): Validated => {
+    if (!element || !ElementReply) return validateGenerated(type, raw);
+    const reply = ElementReply.safeParse(raw);
+    if (!reply.success) return { ok: false, problems: formatIssues(reply.error) };
+    return validateGenerated(type, {
+      variant: args.section.variant,
+      content: updatePath(args.section.content, element.path, reply.data.value),
+    });
+  };
+
+  let user = element
+    ? buildElementEditPrompt(args.section, args.brief, args.request, element)
+    : buildEditPrompt(
+      args.section,
+      args.brief,
+      args.request,
+      args.allowVariantChange ?? true,
+    );
 
   for (
     let attempt = 1;
@@ -486,12 +558,13 @@ export async function editSection(
           system: SECTION_SYSTEM,
           user,
           responseSchema:
-            GENERATION_BASE_SCHEMAS[type],
+            ElementReply ?? GENERATION_BASE_SCHEMAS[type],
 
           /**
-           * Edits should be conservative.
+           * Edits should be conservative. A single element is asked for
+           * because the person wants a different take, so allow more range.
            */
-          temperature: 0.6,
+          temperature: element ? 0.85 : 0.6,
         },
       );
     } catch (error) {
@@ -530,10 +603,9 @@ export async function editSection(
       continue;
     }
 
-    const parsed =
-      GENERATION_SCHEMAS[type].safeParse(raw);
+    const parsed = validate(raw);
 
-    if (parsed.success) {
+    if (parsed.ok) {
       const built = assemble({
         id: args.section.id,
         type,
@@ -543,11 +615,11 @@ export async function editSection(
          * variant regardless of what the model returns.
          */
         variant:
-          args.allowVariantChange === false
+          args.allowVariantChange === false || element
             ? args.section.variant
-            : parsed.data.variant,
+            : parsed.variant,
 
-        content: parsed.data.content,
+        content: parsed.content,
         brief: args.brief,
         projectId: args.projectId,
         status: "valid",
@@ -582,9 +654,7 @@ export async function editSection(
       break;
     }
 
-    const problems = formatIssues(
-      parsed.error,
-    );
+    const problems = parsed.problems;
 
     record({
       sectionType: type,
@@ -611,11 +681,63 @@ export async function editSection(
 
 /* ---------------------------------------------------------- brief parsing */
 
+/**
+ * Models often answer "unknown" with "" (or null) instead of omitting the key.
+ * In a partial brief that should mean "absent", not "reject the whole reply" —
+ * otherwise one empty field throws away the usable fields and the model's
+ * tailored follow-up questions. Each brief field is checked on its own and
+ * dropped if empty or invalid; everything else is kept.
+ */
+export function cleanBriefParse(raw: unknown): unknown {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return raw;
+  const input = raw as Record<string, unknown>;
+  const brief = input.brief;
+  if (!brief || typeof brief !== "object" || Array.isArray(brief)) return raw;
+
+  const shape = BusinessBrief.shape as Record<string, z.ZodType>;
+  const cleaned: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(brief as Record<string, unknown>)) {
+    if (value === null || value === undefined) continue;
+    if (typeof value === "string" && !value.trim()) continue;
+    // Online sales are out of scope; a missing action makes the UI ask instead.
+    if (key === "desiredAction" && typeof value === "string" && isOnlineSales(value)) continue;
+    const field = shape[key];
+    if (field && field.safeParse(value).success) cleaned[key] = value;
+  }
+
+  // Same idea for questions: drop suggestions that are too long, then drop any
+  // question that is still invalid, instead of losing all of them.
+  const suggestion = FollowUpQuestion.shape.suggestions.element;
+  const questions = Array.isArray(input.questions)
+    ? input.questions
+        .map((question) => {
+          if (!question || typeof question !== "object") return question;
+          const q = question as Record<string, unknown>;
+          return Array.isArray(q.suggestions)
+            ? { ...q, suggestions: q.suggestions
+                .filter((s) => suggestion.safeParse(s).success && !isOnlineSales(String(s)))
+                .slice(0, 4) }
+            : q;
+        })
+        .filter((question) => FollowUpQuestion.safeParse(question).success)
+        .slice(0, 2)
+    : input.questions;
+
+  return { ...input, brief: cleaned, questions };
+}
+
+/** The page never sells online: swap such an action for a contact one. */
+function landingOnly(brief: BusinessBrief): BusinessBrief {
+  return isOnlineSales(brief.desiredAction)
+    ? { ...brief, desiredAction: DEFAULT_CONTACT_ACTION }
+    : brief;
+}
+
 export async function parseBrief(
   description: string,
   deps: Deps = {},
 ): Promise<BriefParseOutcome> {
-  const model = deps.model ?? (process.env.GROQ_API_KEY ? groqJson : geminiJson);
+  const model = deps.model ?? groqJson;
 
   const raw = await callWithTransportRetries(
     model,
@@ -627,7 +749,7 @@ export async function parseBrief(
     },
   );
 
-  const parsed = BriefParse.safeParse(raw);
+  const parsed = BriefParse.safeParse(cleanBriefParse(raw));
 
   if (!parsed.success) {
     /**
@@ -686,7 +808,7 @@ export async function completeBrief(
   },
   deps: Deps = {},
 ): Promise<BusinessBrief> {
-  const model = deps.model ?? (process.env.GROQ_API_KEY ? groqJson : geminiJson);
+  const model = deps.model ?? groqJson;
 
   const raw = await callWithTransportRetries(
     model,
@@ -702,7 +824,7 @@ export async function completeBrief(
     },
   );
 
-  const parsed = BriefParse.safeParse(raw);
+  const parsed = BriefParse.safeParse(cleanBriefParse(raw));
 
   const briefCandidate = parsed.success
     ? parsed.data.brief
@@ -762,7 +884,7 @@ export async function completeBrief(
 
   const directBrief = BusinessBrief.safeParse(briefObj);
   if (directBrief.success) {
-    return directBrief.data;
+    return landingOnly(directBrief.data);
   }
 
   const cleanText = (value: unknown, fallback: string, max: number) => {
@@ -811,5 +933,5 @@ export async function completeBrief(
     sections: sections.length >= 2 ? sections : ["hero", "features", "cta"],
   };
 
-  return BusinessBrief.parse(fallbackBrief);
+  return landingOnly(BusinessBrief.parse(fallbackBrief));
 }
