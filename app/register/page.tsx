@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { ArrowRight } from "lucide-react";
 import { useAuth } from "@/components/auth/AuthProvider";
-import { consumePendingProject } from "@/lib/store";
 import styles from "../account.module.css";
 
 export default function RegisterPage() {
@@ -22,8 +21,7 @@ export default function RegisterPage() {
   useEffect(() => {
     if (ready && user && !redirected.current) {
       redirected.current = true;
-      const pendingProjectId = consumePendingProject();
-      router.replace(pendingProjectId ? `/project/${pendingProjectId}` : "/dashboard");
+      router.replace("/");
     }
   }, [ready, user, router]);
 
@@ -66,7 +64,6 @@ export default function RegisterPage() {
             </button>
           </form>
           <p className={styles.registerLine}>¿Ya tienes una cuenta?<Link href="/login">Inicia sesión</Link></p>
-          <p className={styles.authNote}>Demo local: la cuenta solo está disponible en este navegador.</p>
         </div>
       </section>
       <div className={styles.authVisual}>

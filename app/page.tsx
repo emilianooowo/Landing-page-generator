@@ -4,9 +4,8 @@ import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { FollowUpPrompt } from "@/components/intake";
 import { PublicShell } from "@/components/app/PublicShell";
-import { useAuth } from "@/components/auth/AuthProvider";
 import type { BusinessBrief, FollowUpQuestion } from "@/lib/schemas/brief";
-import { newProjectId, savePendingProject, saveProject } from "@/lib/store";
+import { newProjectId, saveProject } from "@/lib/store";
 import styles from "./home.module.css";
 
 const SUGGESTIONS = [
@@ -42,7 +41,6 @@ async function post(url: string, body: unknown) {
 
 export default function Home() {
   const router = useRouter();
-  const { user } = useAuth();
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const [description, setDescription] = useState("");
   const [textareaHeight, setTextareaHeight] = useState(38);
@@ -62,11 +60,6 @@ export default function Home() {
   function go(brief: BusinessBrief) {
     const id = newProjectId();
     const project = { id, description, brief, sections: [], createdAt: new Date().toISOString() };
-    if (!user) {
-      savePendingProject(project);
-      router.push("/register");
-      return;
-    }
     saveProject(project);
     router.push(`/project/${id}`);
   }

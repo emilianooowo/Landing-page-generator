@@ -3,29 +3,58 @@
 
 /* ---------------------------------------------------------------------------
    Two independent theme systems.
-   1. The tool's own chrome (--tool-*): fixed, warm dark, never themed by user.
-   2. The generated page (.page-scope): light/dark via data-theme on the scope
-      element, never on <html>. Sections read page variables only. No
-      Tailwind dark: inside a section, ever.
+   1. The app chrome (--app-* and --tool-*): follows the device color scheme.
+   2. The generated page (.page-scope): light/dark via data-theme on its own
+      scope, independent of the app theme.
 --------------------------------------------------------------------------- */
 
 :root {
-  --tool-bg: #101114;
-  --tool-panel: #17181c;
-  --tool-panel-2: #1d1f24;
-  --tool-border: #2a2d34;
-  --tool-text: #ebecef;
-  --tool-muted: #9297a3;
-  --tool-accent: #d9c9a3;
+  color-scheme: light;
+  --app-bg: #f6f0e5;
+  --app-surface: #fbf7ef;
+  --app-surface-hover: #eaf0f6;
+  --app-border: #d8dfe5;
+  --app-text: #27384b;
+  --app-muted: #6b7b8a;
+  --app-accent: #e4b936;
+  --app-accent-dark: #c49b2b;
+  --app-accent-ink: #ffffff;
+  --app-link: #315d88;
+  --app-danger: #a43349;
+  --tool-bg: var(--app-bg);
+  --tool-panel: var(--app-surface);
+  --tool-panel-2: var(--app-surface-hover);
+  --tool-border: var(--app-border);
+  --tool-text: var(--app-text);
+  --tool-muted: var(--app-muted);
+  --tool-accent: var(--app-accent);
   --ease-premium: cubic-bezier(0.4, 0, 0.2, 1);
   --ease-snappy: cubic-bezier(0.2, 0, 0, 1);
   --ease-back: cubic-bezier(0.175, 0.885, 0.32, 1.275);
 }
 
+@media (prefers-color-scheme: dark) {
+  :root {
+    color-scheme: dark;
+    --app-bg: #18212a;
+    --app-surface: #212e39;
+    --app-surface-hover: #2a3d4e;
+    --app-border: #3a5062;
+    --app-text: #edf3f8;
+    --app-muted: #b4c3cf;
+    --app-accent: #f0c94f;
+    --app-accent-dark: #c29420;
+    --app-accent-ink: #ffffff;
+    --app-link: #a9c9eb;
+    --app-danger: #f09aa6;
+    --tool-accent: #f0c94f;
+  }
+}
+
 html,
 body {
-  background: var(--tool-bg);
-  color: var(--tool-text);
+  background: var(--app-bg);
+  color: var(--app-text);
   font-family: var(--font-body), system-ui, sans-serif;
 }
 
@@ -56,13 +85,14 @@ body {
 }
 
 .page-scope[data-theme="light"] {
-  --page-bg: #ffffff;
-  --page-surface: #ffffff;
+  color-scheme: light;
+  --page-bg: #f8f2e8;
+  --page-surface: #fbf7ef;
   --page-border: rgba(20, 20, 24, 0.09);
   --page-text: #16171b;
   --page-muted: #5f6470;
-  --page-glass: rgba(255, 255, 255, 0.55);
-  --page-glass-border: rgba(255, 255, 255, 0.8);
+  --page-glass: rgba(248, 242, 232, 0.72);
+  --page-glass-border: rgba(241, 232, 218, 0.9);
   --page-glass-shadow: 0 20px 60px -30px rgba(20, 20, 30, 0.35);
   --page-mesh-opacity: 0.55;
   --page-shape-opacity: 0.7;
@@ -70,6 +100,7 @@ body {
 }
 
 .page-scope[data-theme="dark"] {
+  color-scheme: dark;
   --page-bg: #0b0c10;
   --page-surface: #13151b;
   --page-border: rgba(255, 255, 255, 0.1);
@@ -216,5 +247,5 @@ body {
 .tool-button:hover { background: var(--tool-panel-2); border-color: #3a3e47; }
 .tool-button:active { transform: scale(0.98); }
 .tool-button[aria-pressed="true"],
-.tool-button.primary { background: var(--tool-accent); color: #141210; border-color: var(--tool-accent); }
+.tool-button.primary { background: var(--tool-accent); color: #fff; border-color: var(--tool-accent); }
 .tool-button:disabled { opacity: 0.5; cursor: not-allowed; }

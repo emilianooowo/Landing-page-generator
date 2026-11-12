@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
-import { PrivateShell } from "@/components/app/PrivateShell";
+import { PublicShell } from "@/components/app/PublicShell";
 
 export default function ProjectLayout({ children }: { children: ReactNode }) {
-  return <PrivateShell>{children}</PrivateShell>;
+  return <PublicShell>{children}</PublicShell>;
 }

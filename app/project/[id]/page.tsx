@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
-import { CirclePlus, ExternalLink, Laptop, Moon, RotateCw, Smartphone, Sun, Tablet, Undo2 } from "lucide-react";
+import { ExternalLink, Laptop, Moon, RotateCw, Smartphone, Sun, Tablet, Undo2 } from "lucide-react";
 import { PreviewFrame, type PreviewSlot } from "@/components/preview/PreviewFrame";
 import type { PageTheme } from "@/components/preview/ThemeToggle";
 import { VIEWPORTS, type ViewportKey } from "@/components/preview/ViewportToggle";
@@ -26,14 +26,6 @@ async function post(url: string, body: unknown) {
   }
   if (!response.ok) throw new Error(data.error ?? "Ocurrió un error. Inténtalo de nuevo.");
   return data;
-}
-
-function genericPageTitle(description: string, brief: StoredProject["brief"]): string {
-  const context = [description, brief.whatTheyDo, brief.desiredAction, ...brief.keyPoints].join(" ").toLocaleLowerCase("es-MX");
-  if (/cat[aá]logo|ver productos|ver lo que ofrezco|lista de productos/.test(context)) return "Página web de catálogo";
-  if (/venta|vendo|vender|pedido|comprar|comida|postre|accesorio|producto/.test(context)) return "Página web de productos";
-  if (/contact|asesor|consult|clase|materia|agenda|cita|servicio/.test(context)) return "Página web de contacto";
-  return "Página web de servicios";
 }
 
 function normalizeHexColor(color: string): string {
@@ -62,6 +54,7 @@ export default function Workspace() {
   const [error, setError] = useState<string | null>(null);
   /** Snapshots taken before each AI edit, layout change or regeneration. */
   const [history, setHistory] = useState<Section[][]>([]);
+  const [showRegenerateWarning, setShowRegenerateWarning] = useState(false);
   const started = useRef(false);
   /** Latest slots, so an edit that resolves later applies to the current page, not a stale copy. */
   const slotsRef = useRef<PreviewSlot[]>([]);
@@ -179,6 +172,15 @@ export default function Workspace() {
     setProject(next);
   }
 
+  function regenerate() {
+    if (!project) return;
+    started.current = true;
+    setError(null);
+    setShowRegenerateWarning(false);
+    remember();
+    void generateAll(project);
+  }
+
   if (project === undefined) return null;
   if (project === null) {
     return (
@@ -189,13 +191,13 @@ export default function Workspace() {
     );
   }
 
-  const pageTitle = project.brief.hasBusinessName && project.brief.businessName.trim()
-    ? `Tu página para ${project.brief.businessName}`
-    : genericPageTitle(project.description, project.brief);
-  const accentColor = normalizeHexColor(project.brief.brandColor ?? "#7a2638");
+  const businessName = project.name?.trim() || (project.brief.hasBusinessName && project.brief.businessName.trim()
+    ? project.brief.businessName
+    : "Tu emprendimiento");
+  const accentColor = normalizeHexColor(project.brief.brandColor ?? "#315d88");
 
   return (
-    <main className={`${styles.workspacePage} mx-auto max-w-[100rem] px-4 py-5 sm:px-6 lg:px-8`}>
+    <main className={styles.workspacePage}>
       <PreviewFrame
         brief={project.brief}
         description={project.description}
@@ -204,95 +206,101 @@ export default function Workspace() {
         onEdit={edit}
         onTextChange={changeText}
         onVariant={changeVariant}
-        renderSidebar={({ theme, viewport, setViewport, switchTheme }) => (
+        renderToolbar={({ theme, viewport, setViewport, switchTheme }) => (
           <>
-            <div className={styles.titleBlock}>
-              <span className={styles.eyebrow}>Vista previa</span>
-              <div className={styles.titleRow}>
-                <h1 className={styles.title}>{pageTitle}</h1>
-                <div className={styles.actions}>
-                  <button
-                    type="button"
-                    className={`${styles.iconButton} ${styles.iconButtonPrimary}`}
-                    aria-label="Volver a generar la página"
-                    title="Volver a generar"
-                    onClick={() => { started.current = true; remember(); void generateAll(project); }}
-                  ><RotateCw aria-hidden="true" /></button>
-                  <button
-                    type="button"
-                    className={styles.iconButton}
-                    aria-label="Deshacer el último cambio"
-                    title="Deshacer"
-                    disabled={!history.length || slots.some((slot) => slot.state !== "done" || slot.busy)}
-                    onClick={undo}
-                  ><Undo2 aria-hidden="true" /></button>
-                  <Link className={styles.iconButton} href="/" aria-label="Crear otra página" title="Crear otra página">
-                    <CirclePlus aria-hidden="true" />
-                  </Link>
-                  <a className={styles.iconButton} href={`/site/${project.id}`} target="_blank" rel="noreferrer" aria-label="Abrir la página como sitio" title="Ver sitio">
-                    <ExternalLink aria-hidden="true" />
-                  </a>
+            <div className={styles.headerIdentity}>
+              <h1 className={styles.title}>{businessName}</h1>
+              <p className={styles.businessDescription}>{project.brief.whatTheyDo}</p>
+            </div>
+
+            <div className={styles.headerControls}>
+              <div className={styles.headerControlGroup}>
+                <span className={styles.controlLabel}>Color acento</span>
+                <label className={styles.colorControl}>
+                  <span>{accentColor.toUpperCase()}</span>
+                  <input
+                    type="color"
+                    value={accentColor}
+                    aria-label="Elegir color de acento para la página"
+                    onChange={(event) => changeAccent(event.target.value)}
+                  />
+                </label>
+              </div>
+
+              <div className={styles.headerControlGroup}>
+                <span className={styles.controlLabel}>Pantalla</span>
+                <div className={styles.iconGroup} role="group" aria-label="Tamaño de pantalla de la vista previa">
+                  {(Object.keys(VIEWPORTS) as ViewportKey[]).map((size) => {
+                    const Icon = VIEWPORT_ICON[size];
+                    const label = size === "mobile" ? "Celular" : size === "tablet" ? "Tableta" : "Escritorio";
+                    return <button
+                      key={size}
+                      type="button"
+                      className={styles.iconButton}
+                      aria-label={`Vista de ${label.toLocaleLowerCase("es-MX")}`}
+                      title={label}
+                      aria-pressed={viewport === size}
+                      onClick={() => setViewport(size)}
+                    ><Icon aria-hidden="true" /></button>;
+                  })}
                 </div>
               </div>
-              <p className={styles.businessDescription}>{project.brief.whatTheyDo}</p>
-              <p className={styles.audience}>Para {project.brief.audience.toLocaleLowerCase("es-MX")}</p>
-            </div>
 
-            <div className={styles.controlGroup}>
-              <span className={styles.controlLabel}>Apariencia</span>
-              <div className={styles.iconGroup} role="group" aria-label="Apariencia de la página">
-                {(["light", "dark"] as PageTheme[]).map((mode) => {
-                  const Icon = mode === "light" ? Sun : Moon;
-                  return <button
-                    key={mode}
-                    type="button"
-                    className={styles.iconButton}
-                    aria-label={`Usar modo ${mode === "light" ? "claro" : "oscuro"}`}
-                    title={`Modo ${mode === "light" ? "claro" : "oscuro"}`}
-                    aria-pressed={theme === mode}
-                    onClick={(event) => switchTheme(mode, { x: event.clientX, y: event.clientY })}
-                  ><Icon aria-hidden="true" /></button>;
-                })}
+              <div className={styles.headerControlGroup}>
+                <span className={styles.controlLabel}>Apariencia</span>
+                <div className={styles.iconGroup} role="group" aria-label="Apariencia de la página">
+                  {(["light", "dark"] as PageTheme[]).map((mode) => {
+                    const Icon = mode === "light" ? Sun : Moon;
+                    return <button
+                      key={mode}
+                      type="button"
+                      className={styles.iconButton}
+                      aria-label={`Usar modo ${mode === "light" ? "claro" : "oscuro"}`}
+                      title={`Modo ${mode === "light" ? "claro" : "oscuro"}`}
+                      aria-pressed={theme === mode}
+                      onClick={(event) => switchTheme(mode, { x: event.clientX, y: event.clientY })}
+                    ><Icon aria-hidden="true" /></button>;
+                  })}
+                </div>
+              </div>
+
+              <div className={styles.headerActions}>
+                <button
+                  type="button"
+                  className={styles.iconButton}
+                  aria-label="Deshacer el último cambio"
+                  title="Deshacer"
+                  disabled={!history.length || slots.some((slot) => slot.state !== "done" || slot.busy)}
+                  onClick={undo}
+                ><Undo2 aria-hidden="true" /></button>
+                <a className={styles.iconButton} href={`/site/${project.id}`} target="_blank" rel="noreferrer" aria-label="Abrir la página como sitio" title="Ver vista previa">
+                  <ExternalLink aria-hidden="true" />
+                </a>
+                <button
+                  type="button"
+                  className={`${styles.iconButton} ${styles.iconButtonPrimary}`}
+                  aria-label="Volver a hacer la landing"
+                  title="Volver a hacer"
+                  onClick={() => setShowRegenerateWarning(true)}
+                ><RotateCw aria-hidden="true" /></button>
               </div>
             </div>
-
-            <div className={styles.controlGroup}>
-              <span className={styles.controlLabel}>Color de acento</span>
-              <label className={styles.colorControl}>
-                <span>{accentColor.toUpperCase()}</span>
-                <input
-                  type="color"
-                  value={accentColor}
-                  aria-label="Elegir color de acento para la página"
-                  onChange={(event) => changeAccent(event.target.value)}
-                />
-              </label>
-            </div>
-
-            <div className={styles.controlGroup}>
-              <span className={styles.controlLabel}>Tamaño de pantalla</span>
-              <div className={styles.iconGroup} role="group" aria-label="Tamaño de pantalla de la vista previa">
-                {(Object.keys(VIEWPORTS) as ViewportKey[]).map((size) => {
-                  const Icon = VIEWPORT_ICON[size];
-                  const label = size === "mobile" ? "Celular" : size === "tablet" ? "Tableta" : "Escritorio";
-                  return <button
-                    key={size}
-                    type="button"
-                    className={styles.iconButton}
-                    aria-label={`Vista de ${label.toLocaleLowerCase("es-MX")}`}
-                    title={label}
-                    aria-pressed={viewport === size}
-                    onClick={() => setViewport(size)}
-                  ><Icon aria-hidden="true" /></button>;
-                })}
-              </div>
-            </div>
-
-            <p className={styles.businessDescription}>Pasa el cursor sobre una sección para editarla. Con IA puedes cambiar la sección completa o un solo elemento, como el título, un botón o un producto, y pedir otra opción las veces que quieras.</p>
-            {error && <p className={styles.error} role="alert">{error}</p>}
+            {error && <p className={styles.headerError} role="alert">{error}</p>}
           </>
         )}
       />
+      {showRegenerateWarning && (
+        <div className={styles.warningOverlay}>
+          <section className={styles.warningModal} role="dialog" aria-modal="true" aria-labelledby="regenerate-title" aria-describedby="regenerate-description">
+            <h2 id="regenerate-title">¿Volver a hacer la landing?</h2>
+            <p id="regenerate-description">Se regenerarán todas las secciones con la información actual del proyecto. Los textos y diseños que hayas editado en la landing podrían reemplazarse.</p>
+            <div className={styles.warningActions}>
+              <button className={styles.cancelButton} type="button" onClick={() => setShowRegenerateWarning(false)}>Cancelar</button>
+              <button className={styles.confirmButton} type="button" onClick={regenerate}><RotateCw aria-hidden="true" size={16} />Volver a hacer</button>
+            </div>
+          </section>
+        </div>
+      )}
     </main>
   );
 }

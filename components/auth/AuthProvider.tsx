@@ -11,6 +11,7 @@ import {
   updateLocalUser,
   type LocalUser,
 } from "@/lib/auth/local";
+import { claimGuestProjects } from "@/lib/store";
 
 type AuthContextValue = {
   user: LocalUser | null;
@@ -43,10 +44,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     user,
     ready,
     async register(name, email, password) {
-      setUser(await createLocalAccount(name, email, password));
+      const nextUser = await createLocalAccount(name, email, password);
+      claimGuestProjects();
+      setUser(nextUser);
     },
     async signIn(email, password) {
-      setUser(await signInLocalAccount(email, password));
+      const nextUser = await signInLocalAccount(email, password);
+      claimGuestProjects();
+      setUser(nextUser);
     },
     signOut() {
       signOutLocalAccount();
