@@ -10,7 +10,7 @@
   min-height: 100svh;
   position: relative;
   isolation: isolate;
-  overflow-x: clip;
+  overflow: clip;
   color: var(--home-ink);
   background: var(--home-bg);
   font-family: var(--font-body), system-ui, sans-serif;
@@ -53,6 +53,7 @@
 .content {
   position: relative;
   z-index: 1;
+  box-sizing: border-box;
   display: flex;
   width: min(100% - 40px, 780px);
   min-height: 100svh;
