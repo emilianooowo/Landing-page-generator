@@ -30,11 +30,11 @@ export default function PublicSitePage() {
     const updateTitle = () => {
       if (!project) return;
       document.title = project.brief.hasBusinessName && project.brief.businessName
-        ? `${project.brief.businessName} | Landing IA`
-        : `${project.brief.whatTheyDo} | Landing IA`;
+        ? `${project.brief.businessName} | LIA`
+        : `${project.brief.whatTheyDo} | LIA`;
     };
     updateTitle();
-    return () => { document.title = "Landing IA"; };
+    return () => { document.title = "Generador de páginas para emprendimientos | LIA"; };
   }, [project]);
 
   if (project === undefined) return <main className={styles.loading} aria-busy="true" />;

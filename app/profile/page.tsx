@@ -149,7 +149,7 @@ export default function ProfilePage() {
               <h2 className={styles.sectionTitle}>Contraseña</h2>
               <p className={styles.note}>No necesitas cambiarla periódicamente; solo si crees que alguien más la conoce. Al cambiarla cerramos tus otras sesiones.</p>
             </div>
-            <button className={styles.dangerButton} type="button" onClick={() => { setError(null); setModal("password"); }}>Cambiar contraseña</button>
+            <button className={styles.primaryButton} type="button" onClick={() => { setError(null); setModal("password"); }}>Cambiar contraseña</button>
           </section>}
 
           {!mustSetup && <section className={styles.profileSection}>

@@ -27,7 +27,7 @@
   border: 1px solid var(--app-border);
   border-radius: 15px;
   background: color-mix(in srgb, var(--app-surface) 94%, transparent);
-  box-shadow: 0 8px 22px -17px rgba(39, 56, 75, 0.3);
+  box-shadow: 0 8px 22px -17px rgba(0, 0, 0, 0.3);
   backdrop-filter: blur(14px) saturate(135%);
   -webkit-backdrop-filter: blur(14px) saturate(135%);
 }
@@ -126,7 +126,7 @@
 }
 
 .colorControl input::-webkit-color-swatch-wrapper { padding: 0; }
-.colorControl input::-webkit-color-swatch { border: 1px solid rgba(39, 56, 75, 0.16); border-radius: 5px; }
+.colorControl input::-webkit-color-swatch { border: 1px solid rgba(0, 0, 0, 0.16); border-radius: 5px; }
 
 .iconButton {
   display: inline-grid;
@@ -198,12 +198,12 @@
   border: 1px solid var(--app-border);
   border-radius: 18px;
   background: var(--app-surface-hover);
-  box-shadow: 0 10px 25px -22px rgba(39, 56, 75, 0.35);
+  box-shadow: 0 10px 25px -22px rgba(0, 0, 0, 0.35);
 }
 
 .previewSurface > div {
   min-height: 78vh;
-  box-shadow: 0 5px 18px -14px rgba(37, 31, 32, 0.25);
+  box-shadow: 0 5px 18px -14px rgba(0, 0, 0, 0.25);
 }
 
 .warningOverlay {
@@ -213,7 +213,7 @@
   display: grid;
   place-items: center;
   padding: 20px;
-  background: rgba(27, 39, 51, 0.36);
+  background: rgba(20, 20, 20, 0.36);
   -webkit-backdrop-filter: blur(5px);
   backdrop-filter: blur(5px);
 }
@@ -226,7 +226,7 @@
   border: 1px solid var(--app-border);
   border-radius: 16px;
   background: var(--app-surface);
-  box-shadow: 0 24px 70px -34px rgba(20, 34, 48, 0.5);
+  box-shadow: 0 24px 70px -34px rgba(0, 0, 0, 0.5);
 }
 
 .warningModal h2 { margin: 0; color: var(--app-text); font-size: 1.15rem; font-weight: 650; letter-spacing: -0.025em; }
