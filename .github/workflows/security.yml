@@ -45,6 +45,8 @@ jobs:
       - run: npm ci
       - name: Vulnerabilidades en dependencias de producción
         run: npm audit --omit=dev --audit-level=high
+      - name: Tipos de rutas de Next.js
+        run: npx next typegen
       - run: npx tsc --noEmit
       - name: Migraciones
         run: npm run db:migrate
