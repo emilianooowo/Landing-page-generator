@@ -83,9 +83,9 @@ const GOOD: Record<SectionType, unknown> = {
 function broken(type: SectionType, mode: BreakMode): unknown {
   switch (mode) {
     case "variant":
-      return { variant: "cosmic-mega-hero", content: (GOOD[type] as any).content };
+      return { variant: "cosmic-mega-hero", content: (GOOD[type] as { content: unknown }).content };
     case "items":
-      if (type !== "features") return { variant: "cosmic-mega-hero", content: (GOOD[type] as any).content };
+      if (type !== "features") return { variant: "cosmic-mega-hero", content: (GOOD[type] as { content: unknown }).content };
       return {
         variant: "orbit-ring",
         content: {

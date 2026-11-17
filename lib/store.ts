@@ -1,13 +1,14 @@
 "use client";
 
+import { api, ApiError } from "@/lib/api";
 import type { BusinessBrief } from "@/lib/schemas/brief";
 import type { Section } from "@/lib/schemas/section";
-import { getLocalUser } from "@/lib/auth/local";
 
 /**
- * Local demo storage: each browser account owns a localStorage project list.
- * It survives restarts in this browser but does not sync or provide server-side
- * access control; replace this adapter with a database before production.
+ * Project storage.
+ * - Signed in: on the server (/api/projects), which checks ownership on every request.
+ * - Guest: in this browser's localStorage until the person signs in; then the
+ *   guest projects are imported into the account and removed from the browser.
  */
 export type StoredProject = {
   id: string;
@@ -19,119 +20,159 @@ export type StoredProject = {
   createdAt: string;
 };
 
-const PROJECTS_KEY = (ownerId: string) => `lpg:projects:${ownerId}`;
-const GUEST_PROJECTS_KEY = "lpg:projects:guest";
-const PENDING_PROJECT_KEY = "lpg:pending-project";
+const GUEST_KEY = "lpg:projects:guest";
+/** Per-account lists from version 0.1, when accounts lived in the browser. */
+const LEGACY_PREFIX = "lpg:projects:u_";
+
+let signedIn = false;
+/** Set by the AuthProvider. */
+export function setSignedIn(value: boolean) {
+  signedIn = value;
+}
 
 export function newProjectId(): string {
-  return `p_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 7)}`;
+  const random = crypto.getRandomValues(new Uint8Array(6));
+  return `p_${Date.now().toString(36)}${Array.from(random, (byte) => (byte % 36).toString(36)).join("")}`;
 }
 
-export function savePendingProject(project: StoredProject): void {
-  if (typeof window !== "undefined") window.localStorage.setItem(PENDING_PROJECT_KEY, JSON.stringify(project));
-}
+/* ------------------------------------------------------------------ guest */
 
-export function consumePendingProject(): string | null {
-  if (typeof window === "undefined" || !getLocalUser()) return null;
+function readList(key: string): StoredProject[] {
   try {
-    const raw = window.localStorage.getItem(PENDING_PROJECT_KEY);
-    if (!raw) return null;
-    const project = JSON.parse(raw) as StoredProject;
-    saveProject(project);
-    window.localStorage.removeItem(PENDING_PROJECT_KEY);
-    return project.id;
-  } catch {
-    window.localStorage.removeItem(PENDING_PROJECT_KEY);
-    return null;
-  }
-}
-
-export function saveProject(project: StoredProject): void {
-  if (typeof window === "undefined") return;
-  const user = getLocalUser();
-  if (!user) {
-    if (project.ownerId) return;
-    const projects = readGuestProjects();
-    const index = projects.findIndex((item) => item.id === project.id);
-    if (index === -1) projects.unshift(project);
-    else projects[index] = project;
-    window.localStorage.setItem(GUEST_PROJECTS_KEY, JSON.stringify(projects));
-    return;
-  }
-  if (project.ownerId && project.ownerId !== user.id) return;
-  const projects = readProjects(user.id);
-  const next = { ...project, ownerId: user.id };
-  const index = projects.findIndex((item) => item.id === project.id);
-  if (index === -1) projects.unshift(next);
-  else projects[index] = next;
-  window.localStorage.setItem(PROJECTS_KEY(user.id), JSON.stringify(projects));
-}
-
-export function loadProject(id: string): StoredProject | null {
-  if (typeof window === "undefined") return null;
-  const user = getLocalUser();
-  const projects = user ? readProjects(user.id) : readGuestProjects();
-  return projects.find((project) => project.id === id) ?? null;
-}
-
-export function listProjects(): StoredProject[] {
-  if (typeof window === "undefined") return [];
-  const user = getLocalUser();
-  return user ? readProjects(user.id) : readGuestProjects();
-}
-
-export function deleteProject(id: string): void {
-  if (typeof window === "undefined") return;
-  const user = getLocalUser();
-  if (!user) {
-    window.localStorage.setItem(GUEST_PROJECTS_KEY, JSON.stringify(readGuestProjects().filter((project) => project.id !== id)));
-    return;
-  }
-  window.localStorage.setItem(
-    PROJECTS_KEY(user.id),
-    JSON.stringify(readProjects(user.id).filter((project) => project.id !== id)),
-  );
-}
-
-export function claimGuestProjects(): void {
-  if (typeof window === "undefined" || !getLocalUser()) return;
-  const projects = readGuestProjects();
-  projects.forEach((project) => saveProject(project));
-  window.localStorage.removeItem(GUEST_PROJECTS_KEY);
-}
-
-function readGuestProjects(): StoredProject[] {
-  try {
-    const parsed: unknown = JSON.parse(window.localStorage.getItem(GUEST_PROJECTS_KEY) ?? "[]");
+    const parsed: unknown = JSON.parse(window.localStorage.getItem(key) ?? "[]");
     return Array.isArray(parsed) ? parsed as StoredProject[] : [];
   } catch {
     return [];
   }
 }
 
-function readProjects(ownerId: string): StoredProject[] {
-  const key = PROJECTS_KEY(ownerId);
+function writeGuest(projects: StoredProject[]) {
+  if (projects.length) window.localStorage.setItem(GUEST_KEY, JSON.stringify(projects));
+  else window.localStorage.removeItem(GUEST_KEY);
+}
+
+const byNewest = (a: StoredProject, b: StoredProject) => b.createdAt.localeCompare(a.createdAt);
+
+/* ------------------------------------------------------------------ server */
+
+/** What the server accepts: only finished sections, no client-only fields. */
+function payload(project: StoredProject) {
+  return {
+    id: project.id,
+    ...(project.name ? { name: project.name } : {}),
+    description: project.description,
+    brief: project.brief,
+    sections: project.sections.filter((section) => section.status === "valid" || section.status === "fallback"),
+    createdAt: project.createdAt,
+  };
+}
+
+/** Saves of one project run in order, so a slow request never overwrites a newer one. */
+const queues = new Map<string, Promise<void>>();
+
+function enqueue(id: string, work: () => Promise<void>): Promise<void> {
+  const next = (queues.get(id) ?? Promise.resolve()).catch(() => undefined).then(work);
+  queues.set(id, next);
+  void next.finally(() => { if (queues.get(id) === next) queues.delete(id); });
+  return next;
+}
+
+/* ------------------------------------------------------------------ API */
+
+export async function listProjects(): Promise<StoredProject[]> {
+  if (typeof window === "undefined") return [];
+  if (!signedIn) return readList(GUEST_KEY).sort(byNewest);
+  return (await api<{ projects: StoredProject[] }>("/api/projects")).projects;
+}
+
+export async function loadProject(id: string): Promise<StoredProject | null> {
+  if (typeof window === "undefined") return null;
+  if (!signedIn) return readList(GUEST_KEY).find((project) => project.id === id) ?? null;
   try {
-    const parsed: unknown = JSON.parse(window.localStorage.getItem(key) ?? "[]");
-    const projects = Array.isArray(parsed) ? parsed as StoredProject[] : [];
-    let migrated = false;
-    for (let index = window.sessionStorage.length - 1; index >= 0; index -= 1) {
-      const oldKey = window.sessionStorage.key(index);
-      if (!oldKey?.startsWith("lpg:project:")) continue;
+    return (await api<{ project: StoredProject }>(`/api/projects/${encodeURIComponent(id)}`)).project;
+  } catch (error) {
+    if (error instanceof ApiError && error.status === 404) return null;
+    throw error;
+  }
+}
+
+export async function createProject(project: StoredProject): Promise<void> {
+  if (!signedIn) {
+    writeGuest([project, ...readList(GUEST_KEY).filter((item) => item.id !== project.id)]);
+    return;
+  }
+  await enqueue(project.id, () => api("/api/projects", { method: "POST", body: payload(project) }).then(() => undefined));
+}
+
+export async function saveProject(project: StoredProject): Promise<void> {
+  if (!signedIn) {
+    const projects = readList(GUEST_KEY);
+    const index = projects.findIndex((item) => item.id === project.id);
+    if (index === -1) projects.unshift(project);
+    else projects[index] = project;
+    writeGuest(projects);
+    return;
+  }
+  await enqueue(project.id, () => api(`/api/projects/${encodeURIComponent(project.id)}`, { method: "PUT", body: payload(project) }).then(() => undefined));
+}
+
+export async function deleteProject(id: string): Promise<void> {
+  if (!signedIn) {
+    writeGuest(readList(GUEST_KEY).filter((project) => project.id !== id));
+    return;
+  }
+  await api(`/api/projects/${encodeURIComponent(id)}`, { method: "DELETE" });
+}
+
+/** After signing in: moves the guest projects of this browser into the account. */
+export async function importGuestProjects(): Promise<number> {
+  if (typeof window === "undefined" || !signedIn) return 0;
+  const pending = readList(GUEST_KEY);
+  const left: StoredProject[] = [];
+  for (const project of pending) {
+    try {
+      await api("/api/projects", { method: "POST", body: payload(project) });
+    } catch {
+      left.push(project);
+    }
+  }
+  writeGuest(left);
+  return pending.length - left.length;
+}
+
+/** Projects saved by version 0.1 under browser accounts. Imported only on request. */
+export function legacyProjectKeys(): string[] {
+  if (typeof window === "undefined") return [];
+  const keys: string[] = [];
+  for (let index = 0; index < window.localStorage.length; index += 1) {
+    const key = window.localStorage.key(index);
+    if (key?.startsWith(LEGACY_PREFIX)) keys.push(key);
+  }
+  return keys;
+}
+
+export function legacyProjectCount(): number {
+  return legacyProjectKeys().reduce((total, key) => total + readList(key).length, 0);
+}
+
+export async function importLegacyProjects(): Promise<number> {
+  let imported = 0;
+  for (const key of legacyProjectKeys()) {
+    const failed: StoredProject[] = [];
+    for (const project of readList(key)) {
       try {
-        const oldProject = JSON.parse(window.sessionStorage.getItem(oldKey) ?? "null") as StoredProject | null;
-        if (oldProject && !projects.some((project) => project.id === oldProject.id)) {
-          projects.push({ ...oldProject, ownerId });
-          migrated = true;
-        }
-        window.sessionStorage.removeItem(oldKey);
+        await api("/api/projects", { method: "POST", body: payload(project) });
+        imported += 1;
       } catch {
-        window.sessionStorage.removeItem(oldKey);
+        failed.push(project);
       }
     }
-    if (migrated) window.localStorage.setItem(key, JSON.stringify(projects));
-    return [...projects].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
-  } catch {
-    return [];
+    if (failed.length) window.localStorage.setItem(key, JSON.stringify(failed));
+    else window.localStorage.removeItem(key);
   }
+  return imported;
+}
+
+export function discardLegacyProjects() {
+  legacyProjectKeys().forEach((key) => window.localStorage.removeItem(key));
 }

@@ -129,7 +129,7 @@ export const groqJson: ModelCall = async (request) => {
       },
       body: JSON.stringify(body),
     });
-  } catch (cause) {
+  } catch {
     throw new ModelError(
       "No se pudo conectar con el servicio de IA. Revisa tu conexión e inténtalo de nuevo.",
       "network",

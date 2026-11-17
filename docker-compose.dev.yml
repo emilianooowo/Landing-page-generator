@@ -1,0 +1,14 @@
+# Base de datos para desarrollo: docker compose -f docker-compose.dev.yml up -d
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: landing_ia
+      POSTGRES_USER: landing_ia
+      POSTGRES_PASSWORD: desarrollo-local
+    ports:
+      - "127.0.0.1:5433:5432"
+    volumes:
+      - landing-ia-db:/var/lib/postgresql/data
+volumes:
+  landing-ia-db:

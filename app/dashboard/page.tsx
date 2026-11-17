@@ -1,12 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { Check, ExternalLink, FilePenLine, FilePlus2, Pencil, Trash2, X } from "lucide-react";
 import { PrivateShell } from "@/components/app/PrivateShell";
 import { PublicShell } from "@/components/app/PublicShell";
 import { useAuth } from "@/components/auth/AuthProvider";
-import { deleteProject, listProjects, saveProject, type StoredProject } from "@/lib/store";
+import { deleteProject, discardLegacyProjects, importLegacyProjects, legacyProjectCount, listProjects, saveProject, type StoredProject } from "@/lib/store";
 import styles from "../account.module.css";
 
 function projectTitle(project: StoredProject) {
@@ -20,12 +20,32 @@ export default function DashboardPage() {
   const [nameDraft, setNameDraft] = useState("");
   const [descriptionDraft, setDescriptionDraft] = useState("");
 
-  useEffect(() => setProjects(listProjects()), []);
+  const [legacyCount, setLegacyCount] = useState(0);
+  const [notice, setNotice] = useState<string | null>(null);
+  const canList = Boolean(user && !user.mustSetupTwoFactor && !user.mustChangePassword);
 
-  function remove(id: string) {
-    if (!window.confirm("¿Eliminar este proyecto? Esta acción no se puede deshacer.")) return;
-    deleteProject(id);
-    setProjects(listProjects());
+  const refresh = useCallback(() => {
+    if (!canList) return;
+    listProjects()
+      .then((list) => {
+        setProjects(list);
+        setLegacyCount(legacyProjectCount());
+      })
+      .catch((e: unknown) => setNotice(e instanceof Error ? e.message : "No se pudieron cargar tus proyectos."));
+  }, [canList]);
+
+  useEffect(() => refresh(), [refresh]);
+
+  async function importLegacy() {
+    const imported = await importLegacyProjects();
+    setNotice(imported ? `Importamos ${imported} proyecto${imported === 1 ? "" : "s"} a tu cuenta.` : "No se pudo importar ningún proyecto.");
+    refresh();
+  }
+
+  async function remove(id: string) {
+    if (!window.confirm("¿Eliminar este proyecto? Podrás pedir que se recupere durante 30 días.")) return;
+    await deleteProject(id).catch(() => undefined);
+    refresh();
   }
 
   function beginRename(project: StoredProject) {
@@ -43,9 +63,8 @@ export default function DashboardPage() {
       description,
       brief: { ...project.brief, whatTheyDo: description },
     };
-    saveProject(next);
-    setProjects(listProjects());
     setRenaming(null);
+    void saveProject(next).catch(() => undefined).then(refresh);
   }
 
   if (ready && !user) {
@@ -73,6 +92,17 @@ export default function DashboardPage() {
           </div>
           <Link className={styles.primaryButton} href="/"><FilePlus2 aria-hidden="true" size={17} />Nueva página</Link>
         </header>
+
+        {notice && <p className={styles.info} role="status">{notice}</p>}
+        {legacyCount > 0 && (
+          <div className={styles.notice} role="status">
+            <p style={{ margin: 0 }}>Este navegador tiene {legacyCount} proyecto{legacyCount === 1 ? "" : "s"} de la versión anterior, cuando las cuentas se guardaban en el navegador. ¿Son tuyos?</p>
+            <div className={styles.formActions} style={{ marginTop: 10 }}>
+              <button className={styles.plainButton} type="button" onClick={() => { discardLegacyProjects(); setLegacyCount(0); }}>Descartar</button>
+              <button className={styles.primaryButton} type="button" onClick={() => void importLegacy()}>Importarlos a mi cuenta</button>
+            </div>
+          </div>
+        )}
 
         {projects.length ? (
           <section className={styles.projectGrid} aria-label="Proyectos guardados">

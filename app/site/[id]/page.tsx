@@ -3,6 +3,7 @@
 import { useParams } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { SectionRenderer } from "@/components/sections/SectionRenderer";
+import { useAuth } from "@/components/auth/AuthProvider";
 import { loadProject, type StoredProject } from "@/lib/store";
 import { accentFor, themeFor } from "@/lib/styles/landingStyles";
 import { pageScopeVars } from "@/lib/theme/typography";
@@ -15,7 +16,13 @@ export default function PublicSitePage() {
   const motion = project?.sections[0]?.style.motion ?? "balanced";
   const accent = project ? accentFor(project.brief) : "#315d88";
 
-  useEffect(() => setProject(loadProject(id)), [id]);
+  const { ready } = useAuth();
+  useEffect(() => {
+    if (!ready) return;
+    let cancelled = false;
+    loadProject(id).then((p) => { if (!cancelled) setProject(p); }).catch(() => { if (!cancelled) setProject(null); });
+    return () => { cancelled = true; };
+  }, [id, ready]);
 
   useEffect(() => {
     const element = scopeRef.current;
@@ -31,7 +38,7 @@ export default function PublicSitePage() {
   }, [project]);
 
   if (project === undefined) return <main className={styles.loading} aria-busy="true" />;
-  if (!project) return <main className={styles.missing}>No encontramos esta página en la cuenta activa de este navegador.</main>;
+  if (!project) return <main className={styles.missing}>No encontramos esta página en tu cuenta. Inicia sesión con la cuenta que la creó.</main>;
 
   return (
     <main className="page-scope" data-theme={themeFor(project.brief) ?? "light"} ref={scopeRef} style={{ width: "100%", "--accent": accent, ...pageScopeVars(project.brief, motion) } as React.CSSProperties}>

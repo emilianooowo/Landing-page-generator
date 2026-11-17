@@ -2,8 +2,8 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { Check, CircleUserRound, ExternalLink, FilePenLine, Folder, LogOut, PanelLeftClose, PanelLeftOpen, Pencil, Plus, Trash2, X } from "lucide-react";
-import { useEffect, useState, type FormEvent, type ReactNode } from "react";
+import { Check, CircleUserRound, ShieldCheck, ExternalLink, FilePenLine, Folder, LogOut, PanelLeftClose, PanelLeftOpen, Pencil, Plus, Trash2, X } from "lucide-react";
+import { useCallback, useEffect, useState, type FormEvent, type ReactNode } from "react";
 import { useAuth } from "@/components/auth/AuthProvider";
 import { deleteProject, listProjects, saveProject, type StoredProject } from "@/lib/store";
 import styles from "@/app/account.module.css";
@@ -12,8 +12,21 @@ export function PrivateShell({ children }: { children: ReactNode }) {
   const { user, ready, signOut } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-  const [sidebarPreferenceReady, setSidebarPreferenceReady] = useState(false);
+  // The shell renders only in the browser (after `ready`), so reading storage here is safe.
+  const [sidebarCollapsed, setSidebarCollapsedState] = useState(() => {
+    try {
+      return typeof window !== "undefined" && window.localStorage.getItem("lpg:sidebar-collapsed") === "true";
+    } catch {
+      return false;
+    }
+  });
+  const setSidebarCollapsed = (update: (collapsed: boolean) => boolean) => {
+    setSidebarCollapsedState((collapsed) => {
+      const next = update(collapsed);
+      try { window.localStorage.setItem("lpg:sidebar-collapsed", String(next)); } catch { /* storage blocked */ }
+      return next;
+    });
+  };
   const [projects, setProjects] = useState<StoredProject[]>([]);
   const [contextMenu, setContextMenu] = useState<{ projectId: string; left: number; top: number } | null>(null);
   const [renamingProjectId, setRenamingProjectId] = useState<string | null>(null);
@@ -23,18 +36,15 @@ export function PrivateShell({ children }: { children: ReactNode }) {
     if (ready && !user) router.replace("/");
   }, [ready, user, router]);
 
-  useEffect(() => {
-    setSidebarCollapsed(window.localStorage.getItem("lpg:sidebar-collapsed") === "true");
-    setSidebarPreferenceReady(true);
-  }, []);
+  const canListProjects = Boolean(user && !user.mustSetupTwoFactor && !user.mustChangePassword);
+  const refreshProjects = useCallback(() => {
+    if (!canListProjects) return;
+    listProjects().then(setProjects).catch(() => setProjects([]));
+  }, [canListProjects]);
 
   useEffect(() => {
-    if (sidebarPreferenceReady) window.localStorage.setItem("lpg:sidebar-collapsed", String(sidebarCollapsed));
-  }, [sidebarCollapsed, sidebarPreferenceReady]);
-
-  useEffect(() => {
-    setProjects(listProjects());
-  }, [pathname]);
+    refreshProjects();
+  }, [pathname, refreshProjects]);
 
   useEffect(() => {
     if (!contextMenu) return;
@@ -55,18 +65,18 @@ export function PrivateShell({ children }: { children: ReactNode }) {
     setContextMenu(null);
   }
 
-  function saveName(event: FormEvent, project: StoredProject) {
+  async function saveName(event: FormEvent, project: StoredProject) {
     event.preventDefault();
-    saveProject({ ...project, name: nameDraft.trim() || undefined });
-    setProjects(listProjects());
     setRenamingProjectId(null);
+    await saveProject({ ...project, name: nameDraft.trim() || undefined }).catch(() => undefined);
+    refreshProjects();
   }
 
-  function removeProject(project: StoredProject) {
-    if (!window.confirm("¿Eliminar este proyecto? Esta acción no se puede deshacer.")) return;
-    deleteProject(project.id);
-    setProjects(listProjects());
+  async function removeProject(project: StoredProject) {
+    if (!window.confirm("¿Eliminar este proyecto? Podrás pedir que se recupere durante 30 días.")) return;
     setContextMenu(null);
+    await deleteProject(project.id).catch(() => undefined);
+    refreshProjects();
     if (pathname === `/project/${project.id}`) router.replace("/dashboard");
   }
 
@@ -121,13 +131,16 @@ export function PrivateShell({ children }: { children: ReactNode }) {
               }) : <span className={styles.sidebarProjectsEmpty}>Sin proyectos</span>}
             </div>
           </div>
+          {user.role !== "usuario" && !user.mustSetupTwoFactor && (
+            <Link className={styles.sidebarLink} href="/admin" aria-current={pathname === "/admin" ? "page" : undefined}><ShieldCheck aria-hidden="true" /><span>Administración</span></Link>
+          )}
         </nav>
         <div className={styles.sidebarBottom}>
           <Link className={styles.sidebarProfile} href="/profile" title="Perfil y cuenta" aria-current={pathname === "/profile" ? "page" : undefined}>
             <CircleUserRound aria-hidden="true" />
             <span>{user.name}</span>
           </Link>
-          <button className={styles.sidebarLogout} type="button" aria-label="Cerrar sesión" title="Cerrar sesión" onClick={() => { signOut(); router.replace("/"); }}>
+          <button className={styles.sidebarLogout} type="button" aria-label="Cerrar sesión" title="Cerrar sesión" onClick={() => { void signOut().then(() => router.replace("/")); }}>
             <LogOut aria-hidden="true" />
           </button>
         </div>

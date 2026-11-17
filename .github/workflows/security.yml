@@ -1,0 +1,54 @@
+name: Seguridad
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  secretos:
+    name: Escaneo de secretos (gitleaks)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: gitleaks
+        run: |
+          docker run --rm -v "$PWD:/repo" zricethezav/gitleaks:v8.24.3 \
+            detect --source /repo --config /repo/.gitleaks.toml --redact --verbose
+
+  dependencias-y-pruebas:
+    name: Dependencias, tipos y pruebas
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: landing_ia_test
+          POSTGRES_USER: landing_ia
+          POSTGRES_PASSWORD: solo-para-ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U landing_ia" --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      INTEGRATION_DATABASE_URL: postgres://landing_ia:solo-para-ci@localhost:5432/landing_ia_test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Vulnerabilidades en dependencias de producción
+        run: npm audit --omit=dev --audit-level=high
+      - run: npx tsc --noEmit
+      - name: Migraciones
+        run: npm run db:migrate
+        env:
+          DATABASE_MIGRATION_URL: ${{ env.INTEGRATION_DATABASE_URL }}
+      - name: Pruebas (unitarias y de integración con PostgreSQL)
+        run: npm test

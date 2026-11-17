@@ -1,0 +1,19 @@
+# Escaneo de secretos (política de contraseñas, "Prohibido").
+# Usa las reglas por defecto de gitleaks y agrega las llaves de Groq.
+title = "Landing IA"
+
+[extend]
+useDefault = true
+
+[[rules]]
+id = "groq-api-key"
+description = "Llave de API de Groq"
+regex = '''gsk_[A-Za-z0-9]{40,}'''
+keywords = ["gsk_"]
+
+[allowlist]
+description = "Archivos de ejemplo y pruebas con llaves falsas"
+paths = [
+  '''\.env\.example$''',
+  '''tests/.*\.test\.ts$''',
+]

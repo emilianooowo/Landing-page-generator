@@ -7,8 +7,9 @@ import { StylePicker } from "@/components/intake/StylePicker";
 import { PublicShell } from "@/components/app/PublicShell";
 import type { BusinessBrief, FollowUpQuestion } from "@/lib/schemas/brief";
 import type { LandingStyleId } from "@/lib/schemas/primitives";
-import { newProjectId, saveProject } from "@/lib/store";
+import { createProject, newProjectId } from "@/lib/store";
 import { recommendedStyle } from "@/lib/styles/landingStyles";
+import { MAX_DESCRIPTION_LENGTH } from "@/lib/security/limits";
 import styles from "./home.module.css";
 
 const SUGGESTIONS = [
@@ -83,12 +84,18 @@ export default function Home() {
     setPendingBrief(brief);
   }
 
-  function go(brief: BusinessBrief, style: LandingStyleId) {
+  async function go(brief: BusinessBrief, style: LandingStyleId) {
     setBusy(true);
+    setError(null);
     const id = newProjectId();
     const project = { id, description, brief: { ...brief, style }, sections: [], createdAt: new Date().toISOString() };
-    saveProject(project);
-    router.push(`/project/${id}`);
+    try {
+      await createProject(project);
+      router.push(`/project/${id}`);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "No se pudo guardar el proyecto.");
+      setBusy(false);
+    }
   }
 
   async function start() {
@@ -142,7 +149,7 @@ export default function Home() {
             businessLabel={pendingBrief.hasBusinessName && pendingBrief.businessName.trim() ? pendingBrief.businessName : "Tu emprendimiento"}
             busy={busy}
             onBack={() => setPendingBrief(null)}
-            onConfirm={(style) => go(pendingBrief, style)}
+            onConfirm={(style) => void go(pendingBrief, style)}
           />
         ) : questions.length === 0 ? (
           <div className={styles.formArea}>
@@ -151,6 +158,7 @@ export default function Home() {
                 ref={textareaRef}
                 className={styles.textarea}
                 rows={1}
+                maxLength={MAX_DESCRIPTION_LENGTH}
                 value={description}
                 onChange={(event) => updateDescription(event.target.value)}
                 placeholder="Cuéntanos qué ofreces…"
@@ -178,6 +186,10 @@ export default function Home() {
                 )}
               </button>
             </form>
+
+            <p className={styles.privacyNote}>
+              No incluyas contraseñas, números de tarjeta ni datos personales de otras personas. Los correos y teléfonos se omiten antes de enviar la descripción a la IA.
+            </p>
 
             <div className={styles.suggestions} aria-label="Ideas para empezar">
               {SUGGESTIONS.map((suggestion) => (

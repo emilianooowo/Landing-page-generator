@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Folder, Plus } from "lucide-react";
 import type { ReactNode } from "react";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useAuth } from "@/components/auth/AuthProvider";
 import { PrivateShell } from "@/components/app/PrivateShell";
 import { AccountGate } from "@/components/app/AccountGate";
@@ -13,9 +13,10 @@ import styles from "@/app/account.module.css";
 export function PublicShell({ children }: { children: ReactNode }) {
   const { user, ready } = useAuth();
   const pathname = usePathname();
-  const [gateOpen, setGateOpen] = useState(false);
-
-  useEffect(() => setGateOpen(pathname === "/dashboard"), [pathname]);
+  // Opens by itself on /dashboard; a manual open/close applies only to the route where it happened.
+  const [gateChoice, setGateChoice] = useState<{ path: string; open: boolean } | null>(null);
+  const gateOpen = gateChoice?.path === pathname ? gateChoice.open : pathname === "/dashboard";
+  const setGateOpen = (open: boolean) => setGateChoice({ path: pathname, open });
 
   if (!ready) return null;
   if (user) return <PrivateShell>{children}</PrivateShell>;

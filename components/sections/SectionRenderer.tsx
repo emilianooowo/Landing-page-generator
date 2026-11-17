@@ -1,7 +1,7 @@
 "use client";
 
 import { SectionErrorBoundary } from "./SectionErrorBoundary";
-import { componentFor } from "@/lib/variants/registry";
+import { renderVariant } from "@/lib/variants/registry";
 import type { Section } from "@/lib/schemas/section";
 
 /**
@@ -12,7 +12,6 @@ import type { Section } from "@/lib/schemas/section";
  */
 export function SectionRenderer({ section, variantOverride, accentOverride }: { section: Section; variantOverride?: string; accentOverride?: string }) {
   const rendered = variantOverride ? ({ ...section, variant: variantOverride } as Section) : section;
-  const Component = componentFor(rendered);
 
   return (
     <SectionErrorBoundary sectionType={section.type}>
@@ -28,7 +27,7 @@ export function SectionRenderer({ section, variantOverride, accentOverride }: { 
           } as React.CSSProperties
         }
       >
-        <Component section={rendered} />
+        {renderVariant(rendered)}
       </div>
     </SectionErrorBoundary>
   );

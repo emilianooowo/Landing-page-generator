@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useId, useState, type ReactNode } from "react";
 import { SectionOverlay } from "./SectionOverlay";
 import { SectionSkeleton, type PageTheme } from "./ThemeToggle";
 import { VIEWPORTS, type ViewportKey } from "./ViewportToggle";
@@ -56,7 +56,7 @@ export function PreviewFrame({
   const [theme, setTheme] = useState<PageTheme>(styleTheme ?? "light");
   const [themeSelectedManually, setThemeSelectedManually] = useState(false);
   const [sweeping, setSweeping] = useState(false);
-  const scopeRef = useRef<HTMLDivElement>(null);
+  const scopeId = useId();
 
   useEffect(() => {
     const preference = window.matchMedia("(prefers-color-scheme: dark)");
@@ -72,7 +72,7 @@ export function PreviewFrame({
   const motion = first?.section.style.motion ?? "balanced";
 
   function switchTheme(next: PageTheme, origin: { x: number; y: number }) {
-    const el = scopeRef.current;
+    const el = document.getElementById(scopeId);
     if (el) {
       const r = el.getBoundingClientRect();
       el.style.setProperty("--sweep-x", `${((origin.x - r.left) / r.width) * 100}%`);
@@ -93,7 +93,7 @@ export function PreviewFrame({
       <section className={styles.previewColumn} aria-label="Vista previa del sitio">
         <div className={styles.previewSurface}>
           <div
-            ref={scopeRef}
+            id={scopeId}
             className="page-scope mx-auto overflow-hidden rounded-xl"
             data-theme={theme}
             data-sweeping={sweeping ? "true" : undefined}

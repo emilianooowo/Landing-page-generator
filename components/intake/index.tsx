@@ -85,6 +85,7 @@ export function FollowUpPrompt({
             className="tool-input"
             value={q.suggestions.includes(answers[i] ?? "") ? "" : answers[i] ?? ""}
             onChange={(e) => onAnswer(i, e.target.value)}
+            maxLength={300}
             placeholder="O cuéntalo con tus palabras"
           />
         </div>

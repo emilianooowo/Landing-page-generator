@@ -10,6 +10,7 @@ import { VIEWPORTS, type ViewportKey } from "@/components/preview/ViewportToggle
 import type { Section } from "@/lib/schemas/section";
 import { uploadPhoto } from "@/lib/photos";
 import { carryOver } from "@/lib/sections/personal";
+import { useAuth } from "@/components/auth/AuthProvider";
 import { loadProject, saveProject, type StoredProject } from "@/lib/store";
 import { accentFor } from "@/lib/styles/landingStyles";
 import styles from "../workspace.module.css";
@@ -65,25 +66,40 @@ export default function Workspace() {
     slotsRef.current = slots;
   }, [slots]);
 
-  // Load once, then either resume from stored sections or generate them.
+  /** Latest project, so a save that happens later doesn't overwrite a newer change (e.g. the accent colour). */
+  const projectRef = useRef<StoredProject | null>(null);
+  const { ready: authReady, user } = useAuth();
+
+  // Load once (after the session is known), then resume from stored sections or generate them.
   useEffect(() => {
-    const p = loadProject(id);
-    setProject(p ?? null);
-    if (!p) return;
-    if (p.sections.length) {
-      setSlots(p.sections.map((section) => ({ type: section.type, state: "done", section })));
-    } else if (!started.current) {
-      started.current = true;
-      void generateAll(p);
-    }
+    if (!authReady) return;
+    let cancelled = false;
+    loadProject(id).then((p) => {
+      if (cancelled) return;
+      projectRef.current = p;
+      setProject(p);
+      if (!p) return;
+      if (p.sections.length) {
+        setSlots(p.sections.map((section) => ({ type: section.type, state: "done", section })));
+      } else if (!started.current) {
+        started.current = true;
+        void generateAll(p);
+      }
+    }).catch((e: unknown) => {
+      if (!cancelled) setError(e instanceof Error ? e.message : "No se pudo cargar el proyecto.");
+    });
+    return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [id]);
+  }, [id, authReady, user?.id]);
+
+  function store(next: StoredProject) {
+    projectRef.current = next;
+    setProject(next);
+    saveProject(next).catch((e: unknown) => setError(e instanceof Error ? `No se pudieron guardar los cambios: ${e.message}` : "No se pudieron guardar los cambios."));
+  }
 
   function persist(p: StoredProject, sections: Section[]) {
-    // Re-read so a change saved meanwhile (e.g. the accent colour) isn't overwritten.
-    const next = { ...(loadProject(p.id) ?? p), sections };
-    saveProject(next);
-    setProject(next);
+    store({ ...(projectRef.current ?? p), sections });
   }
 
   async function generateAll(p: StoredProject) {
@@ -102,7 +118,7 @@ export default function Workspace() {
         return;
       }
     }
-    persist(loadProject(p.id) ?? p, done);
+    persist(p, done);
   }
 
   function remember() {
@@ -205,9 +221,7 @@ export default function Workspace() {
 
   function changeAccent(color: string) {
     if (!project) return;
-    const next = { ...project, brief: { ...project.brief, brandColor: color } };
-    saveProject(next);
-    setProject(next);
+    store({ ...(projectRef.current ?? project), brief: { ...project.brief, brandColor: color } });
   }
 
   function regenerate() {

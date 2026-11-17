@@ -1,4 +1,4 @@
-import type { ComponentType } from "react";
+import { createElement, type ComponentType, type ReactElement } from "react";
 import { CtaAuroraWave, CtaGlassMonolith, CtaGlowBand, CtaSplitOrbital } from "@/components/sections/cta";
 import { FeaturesDepthBento, FeaturesFloatingColumn, FeaturesGlassGrid, FeaturesOrbitRing } from "@/components/sections/features";
 import { HeroAuroraVeil, HeroFloatingGlassSplit, HeroOrbitalStack, HeroSpotlightMonolith } from "@/components/sections/hero";
@@ -48,4 +48,13 @@ export const VARIANT_COMPONENTS: Record<SectionType, Record<string, SectionCompo
 
 export function componentFor(section: Section): SectionComponent {
   return VARIANT_COMPONENTS[section.type][section.variant] ?? VARIANT_COMPONENTS[section.type][FALLBACK_VARIANTS[section.type]];
+}
+
+/**
+ * Renders the section's variant. Components come from the static table above;
+ * rendering them through this helper (instead of assigning one to a variable
+ * inside a component) keeps their identity stable for React.
+ */
+export function renderVariant(section: Section): ReactElement {
+  return createElement(componentFor(section), { section });
 }
