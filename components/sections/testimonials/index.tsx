@@ -1,118 +1,85 @@
 "use client";
 
-import { AnimatePresence, motion } from "framer-motion";
-import { useEffect, useState } from "react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
+import { useState } from "react";
 import type { Testimonial, TestimonialsSection } from "@/lib/schemas/testimonials";
-import { CursorGlow, CuratedImage, FloatingShapes, MeshGradient, ParallaxLayer, TiltCard } from "@/components/fx";
-import { Container, Display, Lede, Reveal, SectionShell } from "@/components/sections/shared";
+import { Container, Display, Lede, Muted, SectionShell } from "@/components/sections/shared";
 
 type Props = { section: TestimonialsSection };
 
-function Stars({ n }: { n?: number }) {
-  if (!n) return null;
+function Attribution({ testimonial }: { testimonial: Testimonial }) {
+  const example = testimonial.name.trim().toLocaleLowerCase("es-MX") === "cliente de ejemplo";
   return (
-    <div className="flex gap-1" aria-label={`${n} de 5 estrellas`}>
-      {Array.from({ length: 5 }, (_, i) => (
-        <span key={i} style={{ color: i < n ? "var(--accent)" : "var(--page-border)", fontSize: "0.9rem" }}>
-          ★
-        </span>
-      ))}
-    </div>
-  );
-}
-
-function Attribution({ t, seed }: { t: Testimonial; seed: number }) {
-  const sample = /sample/i.test(t.name);
-  return (
-    <footer className="mt-6 flex items-center gap-3">
-      <div className="h-10 w-10 shrink-0 overflow-hidden rounded-full" style={{ border: "1px solid var(--page-glass-border)" }}>
-        <CuratedImage image={t.avatar} seed={seed} />
-      </div>
-      <div>
-        <div style={{ fontWeight: 600 }}>{t.name}</div>
-        <div className="text-sm" style={{ color: "var(--page-muted)" }}>
-          {t.role ?? (sample ? "Reemplaza este ejemplo con una opinión real" : "Cliente")}
-        </div>
-      </div>
+    <footer className="mt-6 flex flex-wrap items-baseline gap-x-3 gap-y-1">
+      <span className="font-semibold">{testimonial.name}</span>
+      {testimonial.role && <span className="text-sm" style={{ color: "var(--page-muted)" }}>{testimonial.role}</span>}
+      {example && <span className="text-sm" style={{ color: "var(--page-muted)" }}>Texto de muestra; sustituir por una opinión real y autorizada.</span>}
+      {testimonial.rating && <span className="text-sm" style={{ color: "var(--page-muted)" }}>Calificación: {testimonial.rating}/5</span>}
     </footer>
   );
 }
 
-function Quote({ t, seed, size = "md" }: { t: Testimonial; seed: number; size?: "md" | "lg" }) {
+function Quote({ testimonial, size = "regular" }: { testimonial: Testimonial; size?: "regular" | "large" }) {
   return (
     <>
-      <Stars n={t.rating} />
       <blockquote
-        className={`mt-4 ${size === "lg" ? "text-[1.5rem] leading-snug @md:text-[2rem]" : "text-[1.05rem] leading-relaxed"}`}
-        style={{ fontFamily: size === "lg" ? "var(--font-display)" : undefined, textWrap: "pretty" }}
+        className={size === "large" ? "text-[1.45rem] leading-snug @md:text-[1.9rem]" : "text-[1.05rem] leading-relaxed"}
+        style={{ fontFamily: size === "large" ? "var(--font-display)" : undefined, textWrap: "pretty" }}
       >
-        “{t.quote}”
+        “{testimonial.quote}”
       </blockquote>
-      <Attribution t={t} seed={seed} />
+      <Attribution testimonial={testimonial} />
     </>
   );
 }
 
-function Heading({ section }: Props) {
-  const { content, style } = section;
+function Heading({ section, align = "left" }: { section: TestimonialsSection; align?: "left" | "center" }) {
+  const centered = align === "center";
   return (
-    <div className="mx-auto mb-12 text-center" style={{ maxWidth: "36rem" }}>
-      <Reveal motion={style.motion}><Display size="lg">{content.headline}</Display></Reveal>
-      {content.subheadline && (
-        <Reveal index={1} motion={style.motion} className="mt-4 flex justify-center">
-          <Lede className="text-center">{content.subheadline}</Lede>
-        </Reveal>
-      )}
-    </div>
+    <header className={`mb-10 max-w-[42rem] ${centered ? "mx-auto text-center" : ""}`}>
+      <Display size="lg">{section.content.headline}</Display>
+      {section.content.subheadline && <Lede className={`mt-4 ${centered ? "mx-auto text-center" : ""}`}>{section.content.subheadline}</Lede>}
+    </header>
+  );
+}
+
+function CarouselControls({ count, active, onChange }: { count: number; active: number; onChange: (next: number) => void }) {
+  if (count < 2) return null;
+  return (
+    <nav className="mt-8 flex items-center gap-3" aria-label="Controles de opiniones">
+      <button
+        type="button"
+        className="inline-flex min-h-11 items-center gap-2 rounded-lg border px-3 text-sm font-medium focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--accent)]"
+        style={{ borderColor: "var(--page-border)" }}
+        onClick={() => onChange((active - 1 + count) % count)}
+        aria-label="Mostrar opinión anterior"
+      ><ChevronLeft size={17} aria-hidden="true" /><span>Anterior</span></button>
+      <span className="min-w-16 text-center text-sm tabular-nums" style={{ color: "var(--page-muted)" }} aria-live="polite">{active + 1} / {count}</span>
+      <button
+        type="button"
+        className="inline-flex min-h-11 items-center gap-2 rounded-lg border px-3 text-sm font-medium focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--accent)]"
+        style={{ borderColor: "var(--page-border)" }}
+        onClick={() => onChange((active + 1) % count)}
+        aria-label="Mostrar opinión siguiente"
+      ><span>Siguiente</span><ChevronRight size={17} aria-hidden="true" /></button>
+    </nav>
   );
 }
 
 /* -------------------------------------------------------- glass-carousel */
 
 export function TestimonialsGlassCarousel({ section }: Props) {
-  const { content, style } = section;
   const [active, setActive] = useState(0);
-  const n = content.items.length;
-
-  useEffect(() => {
-    if (n < 2) return;
-    const id = setInterval(() => setActive((a) => (a + 1) % n), 6000);
-    return () => clearInterval(id);
-  }, [n]);
-
+  const { content } = section;
+  const testimonial = content.items[active];
   return (
     <SectionShell>
-      <MeshGradient seed={style.seed + 21} intensity={0.6} />
       <Container narrow>
-        <Heading section={section} />
-        <div className="relative min-h-[16rem]" style={{ perspective: "1200px" }}>
-          <AnimatePresence mode="popLayout" initial={false}>
-            <motion.div
-              key={active}
-              className="glass p-8 @md:p-10"
-              initial={{ opacity: 0, x: 40, rotateY: -8 }}
-              animate={{ opacity: 1, x: 0, rotateY: 0 }}
-              exit={{ opacity: 0, x: -40, rotateY: 8 }}
-              transition={{ duration: 0.55, ease: [0.2, 0, 0, 1] }}
-            >
-              <Quote t={content.items[active]} seed={style.seed + active} size="lg" />
-            </motion.div>
-          </AnimatePresence>
+        <Heading section={section} align="center" />
+        <div className="border-y py-8 @md:py-10" style={{ borderColor: "var(--page-border)" }} aria-live="polite" aria-atomic="true">
+          <Quote testimonial={testimonial} size="large" />
         </div>
-        {n > 1 && (
-          <div className="mt-6 flex justify-center gap-2">
-            {content.items.map((_, i) => (
-              <button
-                key={i}
-                type="button"
-                aria-label={`Mostrar opinión ${i + 1}`}
-                onClick={() => setActive(i)}
-                className="h-2 rounded-full transition-all"
-                style={{ width: i === active ? 28 : 8, background: i === active ? "var(--accent)" : "var(--page-border)" }}
-              />
-            ))}
-          </div>
-        )}
+        <CarouselControls count={content.items.length} active={active} onChange={setActive} />
       </Container>
     </SectionShell>
   );
@@ -121,23 +88,17 @@ export function TestimonialsGlassCarousel({ section }: Props) {
 /* -------------------------------------------------------- floating-cards */
 
 export function TestimonialsFloatingCards({ section }: Props) {
-  const { content, style } = section;
+  const { content } = section;
   return (
     <SectionShell>
-      <MeshGradient seed={style.seed + 13} intensity={0.7} />
-      <FloatingShapes seed={style.seed + 13} count={Math.max(2, style.floatingShapes - 1)} kinds={["orb", "ring"]} />
-      {style.cursorGlow && <CursorGlow size={600} strength={0.16} />}
       <Container>
         <Heading section={section} />
-        <ul className="grid gap-6 @2xl:grid-cols-2">
-          {content.items.map((t, i) => (
-            <ParallaxLayer key={t.name + i} depth={0.2 + (i % 2) * 0.35} className={i % 2 ? "@2xl:mt-12" : ""}>
-              <Reveal as="li" index={i + 1} motion={style.motion}>
-                <TiltCard max={5} className="p-7 @md:p-8" style={{ transform: `rotate(${(i % 2 ? 1 : -1) * 0.8}deg)` }}>
-                  <Quote t={t} seed={style.seed + i} />
-                </TiltCard>
-              </Reveal>
-            </ParallaxLayer>
+        <ul className="grid gap-x-12 @2xl:grid-cols-2">
+          {content.items.map((testimonial, index) => (
+            <li key={`${testimonial.name}-${index}`} className="border-t py-7" style={{ borderColor: "var(--page-border)" }}>
+              <span className="mb-4 block text-xs font-semibold tabular-nums" style={{ color: "var(--accent)" }}>0{index + 1}</span>
+              <Quote testimonial={testimonial} />
+            </li>
           ))}
         </ul>
       </Container>
@@ -148,34 +109,14 @@ export function TestimonialsFloatingCards({ section }: Props) {
 /* ------------------------------------------------------ single-spotlight */
 
 export function TestimonialsSingleSpotlight({ section }: Props) {
-  const { content, style } = section;
-  const t = content.items[0];
+  const testimonial = section.content.items[0];
   return (
-    <SectionShell className="min-h-[28rem] flex items-center">
-      <MeshGradient seed={style.seed + 4} intensity={0.9} />
-      <CursorGlow size={700} strength={0.28} />
-      <Container narrow className="text-center">
-        <Reveal motion={style.motion}>
-          <div className="mb-8 text-sm" style={{ color: "var(--accent)", fontWeight: 600 }}>{content.headline}</div>
-        </Reveal>
-        <Reveal index={1} motion={style.motion}>
-          <blockquote
-            className="text-[1.7rem] leading-tight @md:text-[2.4rem] @3xl:text-[3rem]"
-            style={{ fontFamily: "var(--font-display)", letterSpacing: "-0.02em", textWrap: "balance" }}
-          >
-            “{t.quote}”
-          </blockquote>
-        </Reveal>
-        <Reveal index={2} motion={style.motion} className="mt-8 flex justify-center">
-          <div className="glass inline-flex items-center gap-3 px-4 py-3" style={{ borderRadius: "999px" }}>
-            <div className="h-9 w-9 overflow-hidden rounded-full"><CuratedImage image={t.avatar} seed={style.seed} /></div>
-            <div className="text-left">
-              <div className="text-sm" style={{ fontWeight: 600 }}>{t.name}</div>
-              {t.role && <div className="text-xs" style={{ color: "var(--page-muted)" }}>{t.role}</div>}
-            </div>
-            <Stars n={t.rating} />
-          </div>
-        </Reveal>
+    <SectionShell>
+      <Container className="grid gap-8 @3xl:grid-cols-[0.35fr_1fr] @3xl:gap-16">
+        <Display size="md">{section.content.headline}</Display>
+        <div className="max-w-[54rem]">
+          <Quote testimonial={testimonial} size="large" />
+        </div>
       </Container>
     </SectionShell>
   );
@@ -184,36 +125,27 @@ export function TestimonialsSingleSpotlight({ section }: Props) {
 /* --------------------------------------------------------- depth-marquee */
 
 export function TestimonialsDepthMarquee({ section }: Props) {
-  const { content, style } = section;
-  const row = [...content.items, ...content.items];
+  const { content } = section;
+  const [featured, ...others] = content.items;
   return (
-    <SectionShell padded={false} className="py-20">
-      <MeshGradient seed={style.seed + 17} intensity={0.5} />
-      <Container className="px-6 @md:px-10">
+    <SectionShell>
+      <Container className="grid gap-10 @3xl:grid-cols-[0.75fr_1.25fr] @3xl:gap-16">
         <Heading section={section} />
-      </Container>
-      {[0, 1].map((r) => (
-        <div
-          key={r}
-          className="relative mt-5 overflow-hidden"
-          style={{
-            maskImage: "linear-gradient(90deg, transparent, black 10%, black 90%, transparent)",
-            opacity: r === 0 ? 1 : 0.7,
-            transform: r === 1 ? "scale(0.94)" : undefined,
-          }}
-        >
-          <div
-            className="flex w-max gap-5"
-            style={{ animation: `marquee ${(r === 0 ? 48 : 64) + content.items.length * 6}s linear infinite`, animationDirection: r === 1 ? "reverse" : "normal" }}
-          >
-            {row.map((t, i) => (
-              <div key={`${r}-${i}`} className="glass w-[22rem] shrink-0 p-6">
-                <Quote t={t} seed={style.seed + i} />
-              </div>
-            ))}
+        <div>
+          <div className="border-t-2 pt-6" style={{ borderColor: "var(--accent)" }}>
+            <Quote testimonial={featured} size="large" />
           </div>
+          {others.length > 0 && (
+            <ul className="mt-9 grid gap-x-8 @2xl:grid-cols-2">
+              {others.map((testimonial, index) => (
+                <li key={`${testimonial.name}-${index}`} className="border-t py-5" style={{ borderColor: "var(--page-border)" }}>
+                  <Quote testimonial={testimonial} />
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
-      ))}
+      </Container>
     </SectionShell>
   );
 }

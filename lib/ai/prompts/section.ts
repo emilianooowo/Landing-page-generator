@@ -49,7 +49,7 @@ const SECTION_TASK: Record<SectionType, string> = {
   features:
     "Explica los productos o servicios del negocio. Cada elemento debe describir algo concreto que la clientela pueda imaginar, no un eslogan; por ejemplo, \"Pasteles personalizados con tres días de anticipación\" en vez de \"Calidad garantizada\". Usa los puntos importantes del resumen. Si dos se parecen, combínalos en vez de alargar la lista sin necesidad.",
   testimonials:
-    "Redacta la sección de opiniones de clientes. Deben sonar como algo que escribiría una persona real: específicas, espontáneas y sencillas. Si no hay datos de clientes reales, deja una sola opinión breve con el nombre \"Cliente de ejemplo\" para que sea claro que hay que reemplazarla.",
+    "Redacta la sección de opiniones solo con citas y nombres reales que la persona haya proporcionado. No inventes elogios, nombres, cargos ni calificaciones, aunque el negocio ya venda. Si no recibiste opiniones reales, devuelve una sola nota breve que diga \"Aún no hay opiniones reales para mostrar.\" y usa el nombre \"Cliente de ejemplo\"; la interfaz la identificará claramente como contenido de muestra.",
   cta: "Redacta el cierre de la página. Incluye una frase que haga sencilla la acción y el texto del botón que la realiza. No repitas el título de la sección principal.",
 };
 

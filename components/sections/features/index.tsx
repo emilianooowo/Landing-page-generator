@@ -1,74 +1,43 @@
 "use client";
 
-import { motion } from "framer-motion";
-import type { FeaturesSection, FeatureItem } from "@/lib/schemas/features";
-import {
-  CursorGlow,
-  CuratedImage,
-  FloatingShapes,
-  IconBadge,
-  MeshGradient,
-  ParallaxLayer,
-  TiltCard,
-} from "@/components/fx";
-import { Container, Display, Lede, Muted, Reveal, SectionShell } from "@/components/sections/shared";
+import type { FeaturesSection } from "@/lib/schemas/features";
+import { Icon } from "@/components/fx/Icon";
+import { CuratedImage } from "@/components/fx/primitives";
+import { Container, Display, Lede, Muted, SectionShell } from "@/components/sections/shared";
 
 type Props = { section: FeaturesSection };
 
-function Heading({ section, center = false }: { section: FeaturesSection; center?: boolean }) {
-  const { content, style } = section;
+function Heading({ section, align = "left" }: { section: FeaturesSection; align?: "left" | "center" }) {
+  const centered = align === "center";
   return (
-    <div className={`mb-12 ${center ? "mx-auto text-center" : ""}`} style={{ maxWidth: "40rem" }}>
-      <Reveal motion={style.motion}>
-        <Display size="lg">{content.headline}</Display>
-      </Reveal>
-      {content.subheadline && (
-        <Reveal index={1} motion={style.motion} className={`mt-4 ${center ? "flex justify-center" : ""}`}>
-          <Lede className={center ? "text-center" : ""}>{content.subheadline}</Lede>
-        </Reveal>
+    <header className={`mb-10 max-w-[42rem] ${centered ? "mx-auto text-center" : ""}`}>
+      <Display size="lg">{section.content.headline}</Display>
+      {section.content.subheadline && (
+        <Lede className={`mt-4 ${centered ? "mx-auto text-center" : ""}`}>{section.content.subheadline}</Lede>
       )}
-    </div>
-  );
-}
-
-function Card({
-  item,
-  index,
-  section,
-  big = false,
-  className = "",
-}: {
-  item: FeatureItem;
-  index: number;
-  section: FeaturesSection;
-  big?: boolean;
-  className?: string;
-}) {
-  return (
-    <Reveal as="li" index={index + 1} motion={section.style.motion} className={`h-full ${className}`}>
-      <TiltCard max={4} className={`flex h-full flex-col gap-4 ${big ? "p-8 @md:p-10" : "p-6 @md:p-7"}`}>
-        <IconBadge name={item.icon} />
-        <h3 style={{ fontFamily: "var(--font-display)", fontSize: big ? "1.7rem" : "1.2rem", letterSpacing: "-0.015em" }}>{item.title}</h3>
-        <Muted>{item.body}</Muted>
-      </TiltCard>
-    </Reveal>
+    </header>
   );
 }
 
 /* ------------------------------------------------------------ glass-grid */
 
 export function FeaturesGlassGrid({ section }: Props) {
-  const { content, style } = section;
-  const cols = content.items.length <= 4 ? "@2xl:grid-cols-2" : "@2xl:grid-cols-2 @4xl:grid-cols-3";
+  const { content } = section;
+  const cols = content.items.length > 4 ? "@4xl:grid-cols-3" : "@2xl:grid-cols-2";
   return (
     <SectionShell>
-      <MeshGradient seed={style.seed + 11} intensity={0.55} />
-      {style.cursorGlow && <CursorGlow size={640} strength={0.16} />}
       <Container>
-        <Heading section={section} center />
-        <ul className={`grid gap-5 ${cols}`}>
-          {content.items.map((item, i) => (
-            <Card key={item.title} item={item} index={i} section={section} />
+        <Heading section={section} />
+        <ul className={`grid gap-x-12 ${cols}`}>
+          {content.items.map((item, index) => (
+            <li key={item.title} className="grid grid-cols-[2rem_1fr] gap-x-4 border-t py-6" style={{ borderColor: "var(--page-border)" }}>
+              <span className="pt-1 text-sm font-semibold tabular-nums" style={{ color: "var(--accent)" }}>0{index + 1}</span>
+              <div className="grid grid-cols-[1fr_auto] items-start gap-x-4 gap-y-2">
+                <h3 className="text-lg font-semibold" style={{ fontFamily: "var(--font-display)" }}>{item.title}</h3>
+                <Icon name={item.icon} size={19} />
+                <Muted className="col-span-2">{item.body}</Muted>
+              </div>
+            </li>
           ))}
         </ul>
       </Container>
@@ -83,40 +52,25 @@ export function FeaturesDepthBento({ section }: Props) {
   const [lead, ...rest] = content.items;
   return (
     <SectionShell>
-      <MeshGradient seed={style.seed + 5} intensity={0.7} />
-      <FloatingShapes seed={style.seed + 5} count={2} kinds={["coin", "ring"]} />
-      <Container>
-        <Heading section={section} />
-        <ul className="grid gap-5 @2xl:grid-cols-6" style={{ perspective: "1400px" }}>
-          <motion.li
-            className="@2xl:col-span-4"
-            initial={{ opacity: 0, y: 26, z: -40 }}
-            whileInView={{ opacity: 1, y: 0, z: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.7, ease: [0.2, 0, 0, 1] }}
-            style={{ transformStyle: "preserve-3d" }}
-          >
-            <TiltCard max={3} className="grid h-full gap-6 overflow-hidden p-2 @2xl:grid-cols-[1fr_1fr]" style={{ borderRadius: "calc(var(--radius) * 1.3)" }}>
-              <div className="flex flex-col justify-center gap-4 p-6 @md:p-8">
-                <IconBadge name={lead.icon} />
-                <h3 style={{ fontFamily: "var(--font-display)", fontSize: "1.9rem", letterSpacing: "-0.02em" }}>{lead.title}</h3>
-                <Muted>{lead.body}</Muted>
-              </div>
-              <div className="min-h-[14rem] overflow-hidden" style={{ borderRadius: "calc(var(--radius) * 1.1)" }}>
-                <CuratedImage image={content.image} photo={style.photo} seed={style.seed} editable />
-              </div>
-            </TiltCard>
-          </motion.li>
-          {rest.map((item, i) => (
-            <Card
-              key={item.title}
-              item={item}
-              index={i + 1}
-              section={section}
-              className={i === 0 ? "@2xl:col-span-2" : "@2xl:col-span-3"}
-            />
-          ))}
-        </ul>
+      <Container className="grid items-start gap-10 @3xl:grid-cols-[0.95fr_1.05fr] @3xl:gap-16">
+        <div>
+          <Heading section={section} />
+          <div className="border-t pt-6" style={{ borderColor: "var(--page-border)" }}>
+            <h3 className="flex items-center gap-3 text-2xl font-semibold" style={{ fontFamily: "var(--font-display)" }}><Icon name={lead.icon} size={21} /><span>{lead.title}</span></h3>
+            <Muted className="mt-3">{lead.body}</Muted>
+          </div>
+          <ul className="mt-7 divide-y" style={{ borderColor: "var(--page-border)" }}>
+            {rest.map((item) => (
+              <li key={item.title} className="grid grid-cols-[1.5rem_1fr] gap-3 py-4 first:pt-0 last:pb-0">
+                <Icon name={item.icon} size={18} className="mt-1" />
+                <div><h4 className="font-semibold">{item.title}</h4><Muted className="mt-1">{item.body}</Muted></div>
+              </li>
+            ))}
+          </ul>
+        </div>
+        <div className="overflow-hidden rounded-[0.9rem]" style={{ aspectRatio: "4 / 3", background: "var(--page-surface)" }}>
+          <CuratedImage image={content.image} photo={style.photo} seed={style.seed} editable />
+        </div>
       </Container>
     </SectionShell>
   );
@@ -125,36 +79,23 @@ export function FeaturesDepthBento({ section }: Props) {
 /* ------------------------------------------------------- floating-column */
 
 export function FeaturesFloatingColumn({ section }: Props) {
-  const { content, style } = section;
+  const { content } = section;
   return (
     <SectionShell>
-      <MeshGradient seed={style.seed + 9} intensity={0.6} />
-      <FloatingShapes seed={style.seed + 9} count={style.floatingShapes} kinds={["orb", "slab"]} />
-      <Container className="grid gap-12 @3xl:grid-cols-[0.8fr_1.2fr]">
-        <div className="@3xl:sticky @3xl:top-24 @3xl:self-start">
+      <Container className="grid gap-10 @3xl:grid-cols-[0.85fr_1.15fr] @3xl:gap-20">
+        <div className="@3xl:sticky @3xl:top-20 @3xl:self-start">
           <Heading section={section} />
         </div>
-        <ol className="relative flex flex-col gap-5">
-          <div aria-hidden className="absolute left-[1.35rem] top-6 bottom-6 w-px" style={{ background: "linear-gradient(180deg, transparent, var(--accent), transparent)" }} />
-          {content.items.map((item, i) => (
-            <ParallaxLayer key={item.title} depth={0.15 + (i % 3) * 0.2}>
-              <Reveal as="li" index={i + 1} motion={style.motion}>
-                <TiltCard max={3} className="grid grid-cols-[2.75rem_1fr] gap-5 p-6 @md:p-7" style={{ marginLeft: i % 2 ? "2rem" : 0 }}>
-                  <span
-                    className="grid h-11 w-11 place-items-center rounded-full text-sm"
-                    style={{ background: "var(--accent)", color: "var(--accent-ink)", fontFamily: "var(--font-display)" }}
-                  >
-                    {i + 1}
-                  </span>
-                  <div>
-                    <div className="mb-2 flex items-center gap-3">
-                      <h3 style={{ fontFamily: "var(--font-display)", fontSize: "1.25rem", letterSpacing: "-0.015em" }}>{item.title}</h3>
-                    </div>
-                    <Muted>{item.body}</Muted>
-                  </div>
-                </TiltCard>
-              </Reveal>
-            </ParallaxLayer>
+        <ol>
+          {content.items.map((item, index) => (
+            <li key={item.title} className="grid grid-cols-[3.5rem_1fr] gap-4 border-t py-6 first:pt-0 last:pb-0" style={{ borderColor: "var(--page-border)" }}>
+              <span className="pt-1 text-sm font-semibold tabular-nums" style={{ color: "var(--accent)" }}>0{index + 1}</span>
+              <div className="grid grid-cols-[1fr_auto] items-start gap-4">
+                <h3 className="text-xl font-semibold" style={{ fontFamily: "var(--font-display)" }}>{item.title}</h3>
+                <Icon name={item.icon} size={19} />
+                <Muted className="col-span-2 max-w-[38rem]">{item.body}</Muted>
+              </div>
+            </li>
           ))}
         </ol>
       </Container>
@@ -165,53 +106,24 @@ export function FeaturesFloatingColumn({ section }: Props) {
 /* ------------------------------------------------------------ orbit-ring */
 
 export function FeaturesOrbitRing({ section }: Props) {
-  const { content, style } = section;
-  const n = content.items.length;
+  const { content } = section;
   return (
-    <SectionShell>
-      <MeshGradient seed={style.seed + 2} intensity={0.8} />
-      {style.cursorGlow && <CursorGlow />}
+    <SectionShell style={{ background: "color-mix(in srgb, var(--accent) 5%, var(--page-bg))" }}>
       <Container>
-        <Heading section={section} center />
-        {/* Wide: cards orbit a glowing centre. Narrow: the same cards stack. */}
-        <div className="relative mx-auto hidden aspect-square w-full max-w-[44rem] @3xl:block">
-          <div
-            aria-hidden
-            className="absolute inset-[30%] rounded-full"
-            style={{ background: "radial-gradient(circle, color-mix(in srgb, var(--accent) 40%, transparent), transparent 70%)", filter: "blur(24px)" }}
-          />
-          <div aria-hidden className="absolute inset-[12%] rounded-full" style={{ border: "1px dashed color-mix(in srgb, var(--accent) 40%, transparent)", animation: "orbit 90s linear infinite" }} />
-          <div className="glass absolute left-1/2 top-1/2 grid h-32 w-32 place-items-center rounded-full text-center" style={{ translate: "-50% -50%" }}>
-            <span style={{ fontFamily: "var(--font-display)", fontSize: "1rem", padding: "0 1rem" }}>{content.headline.split(" ").slice(0, 2).join(" ")}</span>
-          </div>
-          {content.items.map((item, i) => {
-            const angle = (i / n) * 360 - 90;
-            const x = 50 + 38 * Math.cos((angle * Math.PI) / 180);
-            const y = 50 + 38 * Math.sin((angle * Math.PI) / 180);
-            return (
-              <motion.div
-                key={item.title}
-                className="absolute w-[15rem]"
-                style={{ left: `${x}%`, top: `${y}%`, translate: "-50% -50%" }}
-                initial={{ opacity: 0, scale: 0.85 }}
-                whileInView={{ opacity: 1, scale: 1 }}
-                viewport={{ once: true }}
-                transition={{ delay: 0.1 + i * 0.08, duration: 0.6, ease: [0.2, 0, 0, 1] }}
-              >
-                <motion.div animate={{ y: [0, -7, 0] }} transition={{ duration: 6 + i, repeat: Infinity, ease: "easeInOut" }}>
-                  <TiltCard max={6} className="flex flex-col gap-3 p-5">
-                    <IconBadge name={item.icon} />
-                    <h3 style={{ fontFamily: "var(--font-display)", fontSize: "1.1rem" }}>{item.title}</h3>
-                    <Muted className="text-sm">{item.body}</Muted>
-                  </TiltCard>
-                </motion.div>
-              </motion.div>
-            );
-          })}
+        <div className="grid gap-8 @3xl:grid-cols-[0.7fr_1.3fr] @3xl:items-end @3xl:gap-16">
+          <Display size="lg">{content.headline}</Display>
+          {content.subheadline && <Lede>{content.subheadline}</Lede>}
         </div>
-        <ul className="grid gap-5 @3xl:hidden">
-          {content.items.map((item, i) => (
-            <Card key={item.title} item={item} index={i} section={section} />
+        <ul className="mt-10 grid gap-x-8 gap-y-8 @2xl:grid-cols-2 @4xl:grid-cols-4">
+          {content.items.map((item, index) => (
+            <li key={item.title} className="border-t-2 pt-5" style={{ borderColor: index === 0 ? "var(--accent)" : "var(--page-border)" }}>
+              <div className="flex items-center justify-between gap-4">
+                <span className="text-xs font-semibold tabular-nums" style={{ color: "var(--page-muted)" }}>0{index + 1}</span>
+                <Icon name={item.icon} size={19} />
+              </div>
+              <h3 className="mt-7 text-lg font-semibold" style={{ fontFamily: "var(--font-display)" }}>{item.title}</h3>
+              <Muted className="mt-2">{item.body}</Muted>
+            </li>
           ))}
         </ul>
       </Container>
