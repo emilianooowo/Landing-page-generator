@@ -24,7 +24,7 @@ export function PublicShell({ children }: { children: ReactNode }) {
   return (
     <div className={styles.publicFrame}>
       <aside className={styles.publicSidebar}>
-        <Link className={styles.headerBrand} href="/" aria-label="Landing IA, inicio">Landing IA</Link>
+        <Link className={styles.headerBrand} href="/" aria-label="LIA, inicio"><img src="/web-app-manifest-512x512.png" alt="" /></Link>
         <nav className={styles.publicNav} aria-label="Navegación principal">
           <Link className={styles.sidebarLink} href="/" title="Nuevo proyecto" aria-current={pathname === "/" ? "page" : undefined}><Plus aria-hidden="true" /><span>Nuevo proyecto</span></Link>
           <button className={styles.sidebarLink} type="button" title="Panel de proyectos" onClick={() => setGateOpen(true)}><Folder aria-hidden="true" /><span>Panel de proyectos</span></button>

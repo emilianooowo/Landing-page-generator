@@ -45,7 +45,6 @@ export function sectionElements(section: Section): SectionElement[] {
     add("Texto del segundo botón", "secondaryCta.label", 28);
   }
   if (section.type === "hero") {
-    add("Texto breve superior", "kicker", 40);
     const proofPoints = content.proofPoints as { value: string; label: string }[] | undefined;
     proofPoints?.forEach((_, index) => {
       add(`Dato ${index + 1}`, `proofPoints.${index}.value`, 12);

@@ -60,7 +60,7 @@ export function fallbackFor(type: SectionType, brief: BusinessBrief) {
           headline: "Lo que dicen nuestros clientes",
           items: [
             {
-              quote: "Agrega aquí la opinión de un cliente real para reemplazar este ejemplo.",
+              quote: "Aún no hay opiniones reales para mostrar.",
               name: "Cliente de ejemplo",
             },
           ],

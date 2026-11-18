@@ -57,7 +57,7 @@ export default function RegisterPage() {
     <main className={styles.authLayout}>
       <section className={styles.authFormSide}>
         <div className={styles.authContent}>
-          <p className={styles.authBrand}>Landing IA</p>
+          <p className={styles.authBrand}><img src="/web-app-manifest-512x512.png" alt="Landing IA" /></p>
           <div className={styles.authHeading}>
             <h1>Crear una cuenta</h1>
           </div>

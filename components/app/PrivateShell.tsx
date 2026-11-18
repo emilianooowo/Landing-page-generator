@@ -88,13 +88,13 @@ export function PrivateShell({ children }: { children: ReactNode }) {
     <div className={styles.appFrame} onClick={() => setContextMenu(null)}>
       <aside className={`${styles.appSidebar} ${sidebarCollapsed ? styles.appSidebarCollapsed : ""}`}>
         <div className={styles.sidebarTop}>
-          <Link className={styles.headerBrand} href="/" aria-label="Landing IA, nuevo proyecto" aria-hidden={sidebarCollapsed} tabIndex={sidebarCollapsed ? -1 : undefined}>Landing IA</Link>
+          <Link className={styles.headerBrand} href="/" aria-label="LIA, nuevo proyecto"><img src="/web-app-manifest-512x512.png" alt="" /></Link>
           <button className={styles.sidebarCollapseButton} type="button" aria-label={sidebarCollapsed ? "Abrir barra lateral" : "Contraer barra lateral"} title={sidebarCollapsed ? "Abrir barra lateral" : "Contraer barra lateral"} aria-expanded={!sidebarCollapsed} onClick={() => setSidebarCollapsed((collapsed) => !collapsed)}>
             {sidebarCollapsed ? <PanelLeftOpen aria-hidden="true" /> : <PanelLeftClose aria-hidden="true" />}
           </button>
         </div>
-        <nav className={styles.sidebarNav} aria-label="Navegación de la cuenta" aria-hidden={sidebarCollapsed} inert={sidebarCollapsed}>
-          <Link className={styles.sidebarLink} href="/" aria-current={pathname === "/" ? "page" : undefined}><Plus aria-hidden="true" /><span>Nuevo proyecto</span></Link>
+        <nav className={styles.sidebarNav} aria-label="Navegación de la cuenta">
+          <Link className={styles.sidebarLink} href="/" title="Nuevo proyecto" aria-current={pathname === "/" ? "page" : undefined}><Plus aria-hidden="true" /><span>Nuevo proyecto</span></Link>
           <div className={styles.sidebarProjects}>
             <Link
               className={styles.sidebarLink}

@@ -13,18 +13,16 @@ import {
  * ("Bold & floating") lives in the variant registry, never in the schema.
  */
 export const HERO_VARIANTS = [
-  "aurora-veil",          // centred, animated mesh behind glass, no image
-  "floating-glass-split", // copy left, floating glass image card right, parallax
-  "spotlight-monolith",   // single tall glass slab, cursor-follow spotlight
-  "orbital-stack",        // headline with proof points orbiting on depth layers
+  "aurora-veil",          // centered statement with open space, no image
+  "floating-glass-split", // full-bleed editorial photograph with overlaid copy
+  "spotlight-monolith",   // high-contrast copy with supporting proof points
+  "orbital-stack",        // headline paired with a vertical proof-point list
 ] as const;
 
 export const HeroVariant = z.enum(HERO_VARIANTS);
 export type HeroVariant = z.infer<typeof HeroVariant>;
 
 export const HeroContent = z.object({
-  /** Short line above the headline. Optional on purpose — see note in the proposal. */
-  kicker: text(40).optional(),
   headline: text(70),
   subheadline: text(160),
   primaryCta: CtaLink,
